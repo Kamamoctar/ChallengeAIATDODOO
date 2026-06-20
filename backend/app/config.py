@@ -13,8 +13,10 @@ class Settings(BaseSettings):
 
     employee_a_id: int = 0
     employee_a_name: str = "Membre A"
+    employee_a_user_id: int = 0
     employee_b_id: int = 0
     employee_b_name: str = "Membre B"
+    employee_b_user_id: int = 0
 
     telegram_bot_token: Optional[str] = None
     telegram_user_a: int = 0

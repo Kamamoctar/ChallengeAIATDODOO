@@ -1,10 +1,7 @@
 const BASE = import.meta.env.VITE_API_URL || ''
 
 async function request(method, path, body) {
-  const opts = {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-  }
+  const opts = { method, headers: { 'Content-Type': 'application/json' } }
   if (body) opts.body = JSON.stringify(body)
   const res = await fetch(`${BASE}${path}`, opts)
   if (!res.ok) {
@@ -15,10 +12,31 @@ async function request(method, path, body) {
 }
 
 export const api = {
+  // Health
   getHealth: () => request('GET', '/api/health'),
+
+  // Employees
   getEmployees: () => request('GET', '/api/employees'),
+
+  // Projects
   getProjects: () => request('GET', '/api/projects'),
+  getProjectsDetail: () => request('GET', '/api/projects/detail'),
+  getProject: (id) => request('GET', `/api/projects/${id}`),
+  createProject: (data) => request('POST', '/api/projects', data),
+  updateProject: (id, data) => request('PUT', `/api/projects/${id}`, data),
+  cloneProject: (templateId, data) => request('POST', `/api/projects/${templateId}/clone`, data),
+  getProjectTaskTree: (id) => request('GET', `/api/projects/${id}/tasks/tree`),
   getTasks: (projectId) => request('GET', `/api/projects/${projectId}/tasks`),
+
+  // Tasks
+  getMyTasks: (userId) => request('GET', `/api/tasks/mine?user_id=${userId}`),
+  getIndependentTasks: (userId) => request('GET', `/api/tasks/independent?user_id=${userId}`),
+  getTask: (id) => request('GET', `/api/tasks/${id}`),
+  createTask: (data) => request('POST', '/api/tasks', data),
+  updateTask: (id, data) => request('PUT', `/api/tasks/${id}`, data),
+  getAllStages: () => request('GET', '/api/tasks/stages/all'),
+
+  // Timesheets
   getToday: (employeeId) => request('GET', `/api/timesheets/today?employee_id=${employeeId}`),
   getWeek: (employeeId, days = 7) => request('GET', `/api/timesheets/week?employee_id=${employeeId}&days=${days}`),
   createTimesheet: (data) => request('POST', '/api/timesheets', data),
