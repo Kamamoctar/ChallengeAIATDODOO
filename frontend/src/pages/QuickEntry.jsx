@@ -97,7 +97,7 @@ export default function QuickEntry() {
             options={taskOptions}
             value={task}
             onChange={setTask}
-            placeholder={project ? 'Rechercher une tâche…' : 'Choisissez d'abord un projet'}
+            placeholder={project ? 'Rechercher une tâche…' : "Choisissez d'abord un projet"}
             isDisabled={!project}
             isClearable
             styles={selectStyles}
