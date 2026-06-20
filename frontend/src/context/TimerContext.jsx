@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 import { api } from '../api/odoo'
+import { queueAdd } from '../utils/offlineQueue'
 
 const TimerContext = createContext(null)
 const STORAGE_KEY = 'odoo_timer_v2'
@@ -105,20 +106,27 @@ export function TimerProvider({ children }) {
     setAutoStopped(false)
 
     if (saved.projectId && finalWorkMs >= 60_000) {
-      try {
-        await api.createTimesheet({
-          employee_id: saved.employeeId,
-          project_id: saved.projectId,
-          task_id: saved.taskId || null,
-          name: saved.taskName || 'Focus',
-          date: format(new Date(), 'yyyy-MM-dd'),
-          unit_amount: hours,
-        })
-        qc.invalidateQueries({ queryKey: ['timesheets-today'] })
-        qc.invalidateQueries({ queryKey: ['timesheets-week'] })
-        toast.success(`✅ ${hours}h enregistrées → ${saved.projectName}`)
-      } catch (e) {
-        toast.error(`Erreur enregistrement : ${e.message}`)
+      const entry = {
+        employee_id: saved.employeeId,
+        project_id: saved.projectId,
+        task_id: saved.taskId || null,
+        name: saved.taskName || 'Focus',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        unit_amount: hours,
+      }
+      if (!navigator.onLine) {
+        queueAdd(entry)
+        toast.success(`📶 Hors-ligne — ${hours}h mis en attente de sync`, { duration: 5000 })
+      } else {
+        try {
+          await api.createTimesheet(entry)
+          qc.invalidateQueries({ queryKey: ['timesheets-today'] })
+          qc.invalidateQueries({ queryKey: ['timesheets-2weeks'] })
+          toast.success(`✅ ${hours}h enregistrées → ${saved.projectName}`)
+        } catch (e) {
+          queueAdd(entry)
+          toast.error(`Erreur réseau — ${hours}h sauvegardées localement`, { duration: 5000 })
+        }
       }
     } else if (finalWorkMs < 60_000) {
       toast('Durée inférieure à 1 min — non enregistré', { icon: 'ℹ️' })

@@ -52,6 +52,21 @@ async def telegram_webhook(request: Request):
         await reply(await commands.cmd_aujourd_hui(employee_id))
         return {"ok": True}
 
+    if text.startswith("/semaine"):
+        if not employee_id:
+            await reply("Votre Telegram ID n'est pas configuré.")
+            return {"ok": True}
+        await reply(await commands.cmd_semaine(employee_id))
+        return {"ok": True}
+
+    if text.startswith("/portefeuille"):
+        await reply(await commands.cmd_portefeuille())
+        return {"ok": True}
+
+    if text.startswith("/retard"):
+        await reply(await commands.cmd_retard())
+        return {"ok": True}
+
     if text.startswith("/log ") or text.startswith("/log\n"):
         if not employee_id:
             await reply("Votre Telegram ID n'est pas configuré. Parlez à votre binôme.")

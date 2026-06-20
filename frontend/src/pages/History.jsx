@@ -6,6 +6,27 @@ import { useTeam } from '../context/TeamContext'
 import EmployeeToggle from '../components/EmployeeToggle'
 import EntryCard from '../components/EntryCard'
 
+function exportCSV(entries, memberName) {
+  const rows = [['Date', 'Projet', 'Tâche', 'Description', 'Heures']]
+  entries.forEach(e => {
+    rows.push([
+      e.date,
+      Array.isArray(e.project_id) ? e.project_id[1] : '',
+      Array.isArray(e.task_id) ? e.task_id[1] : '',
+      e.name || '',
+      e.unit_amount?.toFixed(2) || '0',
+    ])
+  })
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `timesheets_${memberName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function History() {
   const { active } = useTeam()
   const queryKey = ['timesheets-week', active.id]
@@ -29,8 +50,21 @@ export default function History() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <header className="nav-bar">
-        <div style={{ fontWeight: 700 }}>Historique</div>
-        <EmployeeToggle />
+        <div>
+          <div style={{ fontWeight: 700 }}>Historique</div>
+          <div style={{ fontSize: '.72rem', color: 'var(--text-muted)' }}>14 derniers jours</div>
+        </div>
+        <div style={{ display: 'flex', gap: '.4rem', alignItems: 'center' }}>
+          {entries.length > 0 && (
+            <button onClick={() => exportCSV(entries, active.name)}
+              className="btn btn-ghost"
+              style={{ padding: '5px 10px', fontSize: '.78rem' }}
+              title="Exporter en CSV">
+              ⬇ CSV
+            </button>
+          )}
+          <EmployeeToggle />
+        </div>
       </header>
 
       <main className="page">

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { format, parseISO, differenceInDays } from 'date-fns'
+import { format, parseISO, differenceInDays, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
@@ -13,6 +13,7 @@ import EmployeeToggle from '../components/EmployeeToggle'
 import EntryCard from '../components/EntryCard'
 import { DayBarChart, ProjectPieChart, WeeklyStats, buildWeekStats } from '../components/WeeklyReport'
 import { parsePhase, ISO_PHASES } from '../components/ISOPhase'
+import { useDeadlineNotifications } from '../hooks/useNotifications'
 
 const DAILY_GOAL = 8
 const WEEKLY_GOAL = 40
@@ -29,9 +30,9 @@ export default function Dashboard() {
     queryFn: () => api.getToday(active.id),
     enabled: active.id > 0,
   })
-  const { data: weekEntries = [] } = useQuery({
-    queryKey: ['timesheets-week', active.id],
-    queryFn: () => api.getWeek(active.id, 7),
+  const { data: twoWeekEntries = [] } = useQuery({
+    queryKey: ['timesheets-2weeks', active.id],
+    queryFn: () => api.getWeek(active.id, 14),
     enabled: active.id > 0,
   })
   const { data: compareEntries = [] } = useQuery({
@@ -44,6 +45,13 @@ export default function Dashboard() {
     queryFn: api.getProjectsDetail,
     staleTime: 120_000,
   })
+
+  useDeadlineNotifications(projects)
+
+  const cutoff = format(subDays(new Date(), 7), 'yyyy-MM-dd')
+  const weekEntries = twoWeekEntries.filter(e => e.date >= cutoff)
+  const prevWeekEntries = twoWeekEntries.filter(e => e.date < cutoff)
+  const prevWeekTotal = prevWeekEntries.reduce((s, e) => s + (e.unit_amount || 0), 0)
 
   const weekStats = buildWeekStats(weekEntries)
   const { total: weekTotal, todayH, avgPerDay, overtimeH, weekOvertimeH } = weekStats
@@ -89,6 +97,7 @@ export default function Dashboard() {
           overtimeH={overtimeH} weekOvertimeH={weekOvertimeH}
           dailyPct={dailyPct} overtimePct={overtimePct} isOverToday={isOverToday}
           weekEntries={weekEntries} compareEntries={compareEntries}
+          prevWeekTotal={prevWeekTotal}
           active={active} compare={compare}
           todayEntries={todayEntries} loadingToday={loadingToday}
           qkToday={['timesheets-today', active.id]}
@@ -98,12 +107,13 @@ export default function Dashboard() {
         <ChefTab
           projects={projects} weekEntries={weekEntries} compareEntries={compareEntries}
           active={active} compare={compare}
-          weekTotal={weekTotal}
+          weekTotal={weekTotal} prevWeekTotal={prevWeekTotal}
         />
       )}
       {tab === 'direction' && (
         <DirectionTab
           projects={projects} weekEntries={weekEntries} compareEntries={compareEntries}
+          prevWeekTotal={prevWeekTotal}
           active={active} compare={compare}
         />
       )}
@@ -117,9 +127,10 @@ export default function Dashboard() {
 function PersonalTab({
   todayH, weekTotal, avgPerDay, overtimeH, weekOvertimeH,
   dailyPct, overtimePct, isOverToday,
-  weekEntries, compareEntries, active, compare,
+  weekEntries, compareEntries, prevWeekTotal, active, compare,
   todayEntries, loadingToday, qkToday,
 }) {
+  const weekTrend = prevWeekTotal > 0 ? weekTotal - prevWeekTotal : null
   return (
     <main className="page">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '.75rem', marginBottom: '1rem' }}>
@@ -127,7 +138,10 @@ function PersonalTab({
           sub={isOverToday ? `🔥 +${overtimeH.toFixed(1)}h overtime` : `/ ${DAILY_GOAL}h`}
           accent={isOverToday} />
         <StatCard value={`${weekTotal.toFixed(1)}h`} label="Cette semaine"
-          sub={weekOvertimeH > 0 ? `🔥 +${weekOvertimeH.toFixed(1)}h` : `/ 40h`} />
+          sub={weekTrend !== null
+            ? (weekTrend >= 0 ? `▲ +${weekTrend.toFixed(1)}h vs S-1` : `▼ ${weekTrend.toFixed(1)}h vs S-1`)
+            : (weekOvertimeH > 0 ? `🔥 +${weekOvertimeH.toFixed(1)}h` : `/ 40h`)}
+          color={weekTrend !== null ? (weekTrend >= 0 ? 'var(--success)' : 'var(--danger)') : undefined} />
         <StatCard value={`${avgPerDay.toFixed(1)}h`} label="Moy. / jour"
           sub="jours travaillés" />
         <StatCard value={`${Math.round((todayH / DAILY_GOAL) * 100)}%`} label="Objectif jour"
@@ -190,7 +204,7 @@ function PersonalTab({
 }
 
 /* ─── TAB : CHEF DE PROJET ──────────────────────────────────────── */
-function ChefTab({ projects, weekEntries, compareEntries, active, compare, weekTotal }) {
+function ChefTab({ projects, weekEntries, compareEntries, active, compare, weekTotal, prevWeekTotal }) {
   const now = new Date()
   const totalA = weekEntries.reduce((s, e) => s + (e.unit_amount || 0), 0)
   const totalB = compareEntries.reduce((s, e) => s + (e.unit_amount || 0), 0)
@@ -228,7 +242,10 @@ function ChefTab({ projects, weekEntries, compareEntries, active, compare, weekT
           color={overdueProjects.length > 0 ? 'var(--danger)' : 'var(--success)'}
           highlight={overdueProjects.length > 0} invertHighlight />
         <StatCard value={`${totalA.toFixed(1)}h`} label="Mes heures / sem."
-          sub={totalA > WEEKLY_GOAL ? `🔥 +${(totalA - WEEKLY_GOAL).toFixed(1)}h` : `/ ${WEEKLY_GOAL}h`} />
+          sub={prevWeekTotal > 0
+            ? (totalA >= prevWeekTotal ? `▲ +${(totalA - prevWeekTotal).toFixed(1)}h vs S-1` : `▼ ${(totalA - prevWeekTotal).toFixed(1)}h vs S-1`)
+            : (totalA > WEEKLY_GOAL ? `🔥 +${(totalA - WEEKLY_GOAL).toFixed(1)}h` : `/ ${WEEKLY_GOAL}h`)}
+          color={prevWeekTotal > 0 ? (totalA >= prevWeekTotal ? 'var(--success)' : 'var(--danger)') : undefined} />
         <StatCard value={`${(totalA + totalB).toFixed(1)}h`} label="Équipe / sem."
           sub={`${active.name?.split(' ')[0]} + ${compare?.name?.split(' ')[0]}`} />
       </div>
@@ -351,7 +368,7 @@ function ChefTab({ projects, weekEntries, compareEntries, active, compare, weekT
 }
 
 /* ─── TAB : DIRECTION ───────────────────────────────────────────── */
-function DirectionTab({ projects, weekEntries, compareEntries, active, compare }) {
+function DirectionTab({ projects, weekEntries, compareEntries, prevWeekTotal, active, compare }) {
   const now = new Date()
   const totalA = weekEntries.reduce((s, e) => s + (e.unit_amount || 0), 0)
   const totalB = compareEntries.reduce((s, e) => s + (e.unit_amount || 0), 0)
@@ -420,7 +437,9 @@ function DirectionTab({ projects, weekEntries, compareEntries, active, compare }
       {/* KPI Row direction */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '.75rem', marginBottom: '1rem' }}>
         <StatCard value={`${teamUtil}%`} label="Utilisation équipe"
-          sub={`${teamHours.toFixed(1)}h / ${2 * WEEKLY_GOAL}h`}
+          sub={prevWeekTotal > 0
+            ? (teamHours / 2 >= prevWeekTotal ? `▲ progression vs S-1` : `▼ vs S-1 (${prevWeekTotal.toFixed(1)}h)`)
+            : `${teamHours.toFixed(1)}h / ${2 * WEEKLY_GOAL}h`}
           color={teamUtil > 100 ? 'var(--overtime)' : teamUtil >= 70 ? 'var(--success)' : '#b45309'}
           highlight={teamUtil > 100} />
         <StatCard value={projects.filter(p => parsePhase(p.description) !== 'Closing').length}

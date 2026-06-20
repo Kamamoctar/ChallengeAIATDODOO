@@ -48,7 +48,16 @@ export default function Projects() {
     onError: (e) => toast.error(e.message),
   })
 
-  const filtered = projects.filter(p =>
+  const [showArchived, setShowArchived] = useState(false)
+
+  const activeProjects = projects.filter(p => {
+    const phase = parsePhase(p.description)
+    return phase !== 'Closing'
+  })
+  const archivedProjects = projects.filter(p => parsePhase(p.description) === 'Closing')
+  const pool = showArchived ? archivedProjects : activeProjects
+
+  const filtered = pool.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -57,16 +66,30 @@ export default function Projects() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <header className="nav-bar">
-        <div style={{ fontWeight: 700 }}>Projets</div>
+        <div>
+          <div style={{ fontWeight: 700 }}>Projets</div>
+          <div style={{ fontSize: '.72rem', color: 'var(--text-muted)' }}>
+            {showArchived ? `${archivedProjects.length} clôturés` : `${activeProjects.length} actifs`}
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: '.4rem' }}>
-          <button onClick={() => { setShowClone(true); setShowNew(false) }}
-            className="btn btn-ghost" style={{ padding: '6px 10px', fontSize: '.8rem' }}>
-            📋 Cloner
+          <button onClick={() => setShowArchived(v => !v)}
+            className={`btn ${showArchived ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ padding: '6px 10px', fontSize: '.8rem' }}>
+            {showArchived ? '📂 Actifs' : '🗄 Archivés'}
           </button>
-          <button onClick={() => { setShowNew(true); setShowClone(false) }}
-            className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '.8rem' }}>
-            + Nouveau
-          </button>
+          {!showArchived && (
+            <>
+              <button onClick={() => { setShowClone(true); setShowNew(false) }}
+                className="btn btn-ghost" style={{ padding: '6px 10px', fontSize: '.8rem' }}>
+                📋 Cloner
+              </button>
+              <button onClick={() => { setShowNew(true); setShowClone(false) }}
+                className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '.8rem' }}>
+                + Nouveau
+              </button>
+            </>
+          )}
         </div>
       </header>
 
