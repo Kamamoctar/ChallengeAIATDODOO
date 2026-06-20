@@ -6,6 +6,7 @@ import { fr } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { api } from '../api/odoo'
 import Select from 'react-select'
+import { parsePhase, ISO_PHASES } from '../components/ISOPhase'
 
 export default function Projects() {
   const navigate = useNavigate()
@@ -122,24 +123,44 @@ export default function Projects() {
         )}
         {filtered.map(p => {
           const overdue = p.date && isPast(parseISO(p.date))
+          const phaseId = parsePhase(p.description)
+          const phase = ISO_PHASES.find(ph => ph.id === phaseId)
+          const isClosed = phaseId === 'Closing'
           return (
             <Link key={p.id} to={`/projects/${p.id}`} style={{ textDecoration: 'none' }}>
-              <div className="card" style={{ marginBottom: '.6rem', cursor: 'pointer' }}>
+              <div className="card" style={{ marginBottom: '.6rem', cursor: 'pointer',
+                borderLeft: overdue ? '3px solid var(--danger)' : isClosed ? '3px solid #8b5cf6' : '3px solid transparent' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ fontWeight: 700, fontSize: '.95rem', color: 'var(--text)', flex: 1, marginRight: '.5rem' }}>
+                  <div style={{ fontWeight: 700, fontSize: '.95rem', color: 'var(--text)', flex: 1, marginRight: '.5rem',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {p.name}
                   </div>
-                  <span style={{ fontSize: '.7rem', color: overdue ? 'var(--danger)' : 'var(--text-muted)',
-                    whiteSpace: 'nowrap', fontWeight: overdue ? 700 : 400 }}>
-                    {p.date ? format(parseISO(p.date), 'd MMM yy', { locale: fr }) : ''}
-                    {overdue ? ' ⚠️' : ''}
-                  </span>
-                </div>
-                {p.user_id && (
-                  <div style={{ fontSize: '.75rem', color: 'var(--text-muted)', marginTop: '.2rem' }}>
-                    👤 {Array.isArray(p.user_id) ? p.user_id[1] : p.user_id}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '.2rem', flexShrink: 0 }}>
+                    {p.date && (
+                      <span style={{ fontSize: '.7rem', color: overdue ? 'var(--danger)' : 'var(--text-muted)',
+                        whiteSpace: 'nowrap', fontWeight: overdue ? 700 : 400 }}>
+                        📅 {format(parseISO(p.date), 'd MMM yy', { locale: fr })}
+                        {overdue ? ' ⚠️' : ''}
+                      </span>
+                    )}
                   </div>
-                )}
+                </div>
+                <div style={{ display: 'flex', gap: '.4rem', alignItems: 'center', marginTop: '.35rem', flexWrap: 'wrap' }}>
+                  {phase && (
+                    <span style={{ fontSize: '.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 700,
+                      background: `${phase.color}18`, color: phase.color, border: `1px solid ${phase.color}44` }}>
+                      {phase.icon} {phase.label}
+                    </span>
+                  )}
+                  {p.user_id && (
+                    <span style={{ fontSize: '.7rem', color: 'var(--text-muted)' }}>
+                      👤 {Array.isArray(p.user_id) ? p.user_id[1] : p.user_id}
+                    </span>
+                  )}
+                  {overdue && (
+                    <span className="badge badge-danger" style={{ fontSize: '.63rem' }}>En retard</span>
+                  )}
+                </div>
               </div>
             </Link>
           )

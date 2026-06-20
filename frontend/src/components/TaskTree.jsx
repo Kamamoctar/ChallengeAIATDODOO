@@ -6,13 +6,15 @@ import { useTimer } from '../context/TimerContext'
 import { useTeam } from '../context/TeamContext'
 import QuickTimelog from './QuickTimelog'
 
+const RISK_RE      = /^\[(RISK|RISQUE)\]/i
+const ISSUE_RE     = /^\[(ISSUE|PROBLEME)\]/i
+const MILESTONE_RE = /^\[MILESTONE\]/i
+
 function priorityBadge(p) {
-  return p === '1'
-    ? <span style={{ color: '#f59e0b', fontSize: '.8rem' }}>⭐</span>
-    : null
+  return p === '1' ? <span style={{ color: '#f59e0b', fontSize: '.8rem' }}>⭐</span> : null
 }
 
-function TaskNode({ task, projectId, projectName, depth = 0, allTasks }) {
+function TaskNode({ task, projectId, projectName, depth = 0, allTasks, wbsNumber }) {
   const [open, setOpen] = useState(depth === 0)
   const [showLog, setShowLog] = useState(false)
   const [showBlocker, setShowBlocker] = useState(false)
@@ -21,11 +23,18 @@ function TaskNode({ task, projectId, projectName, depth = 0, allTasks }) {
   const { active } = useTeam()
   const qc = useQueryClient()
 
-  const children = allTasks.filter(t => t.parent_id && t.parent_id[0] === task.id)
+  const children = allTasks.filter(t =>
+    t.parent_id && t.parent_id[0] === task.id &&
+    !RISK_RE.test(t.name) && !ISSUE_RE.test(t.name)
+  )
   const hasChildren = children.length > 0 || (task.child_ids && task.child_ids.length > 0)
 
   const stageName = Array.isArray(task.stage_id) ? task.stage_id[1] : '—'
   const isThisRunning = runningTaskId === task.id
+  const isMilestone = MILESTONE_RE.test(task.name)
+  const displayName = task.name.replace(/^\[MILESTONE\]\s*/i, '')
+  const isOverdue = task.date_deadline && task.date_deadline < new Date().toISOString().split('T')[0]
+  const hasBlocker = (task.description || '').includes('🚨') || (task.description || '').includes('BLOCAGE')
 
   const updateTask = useMutation({
     mutationFn: ({ id, data }) => api.updateTask(id, data),
@@ -56,6 +65,10 @@ function TaskNode({ task, projectId, projectName, depth = 0, allTasks }) {
       <div style={{
         display: 'flex', alignItems: 'center', gap: '.4rem',
         padding: '.5rem 0', borderBottom: '1px solid var(--border)',
+        background: isMilestone ? '#faf5ff' : undefined,
+        borderLeft: isMilestone ? '3px solid #8b5cf6' : undefined,
+        paddingLeft: isMilestone ? '.5rem' : undefined,
+        borderRadius: isMilestone ? '0 6px 6px 0' : undefined,
       }}>
         {hasChildren ? (
           <button onClick={() => setOpen(o => !o)}
@@ -64,10 +77,23 @@ function TaskNode({ task, projectId, projectName, depth = 0, allTasks }) {
           </button>
         ) : <span style={{ width: 20, flexShrink: 0 }} />}
 
+        {/* WBS number */}
+        {wbsNumber && (
+          <span style={{ fontSize: '.65rem', color: 'var(--text-muted)', fontWeight: 700,
+            minWidth: depth === 0 ? 24 : undefined, flexShrink: 0 }}>
+            {wbsNumber}
+          </span>
+        )}
+
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '.3rem', flexWrap: 'wrap' }}>
+            {isMilestone && <span title="Jalon" style={{ color: '#8b5cf6' }}>◆</span>}
             {priorityBadge(task.priority)}
-            <span style={{ fontSize: '.9rem', fontWeight: depth === 0 ? 600 : 400 }}>{task.name}</span>
+            {hasBlocker && <span title="Blocage signalé" style={{ fontSize: '.75rem' }}>🚨</span>}
+            <span style={{ fontSize: '.9rem', fontWeight: depth === 0 ? 600 : 400,
+              color: isMilestone ? '#6d28d9' : undefined }}>
+              {displayName}
+            </span>
           </div>
           <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', marginTop: '.15rem' }}>
             <span style={{ fontSize: '.7rem', color: 'var(--text-muted)', background: 'var(--bg)',
@@ -75,9 +101,14 @@ function TaskNode({ task, projectId, projectName, depth = 0, allTasks }) {
               {stageName}
             </span>
             {task.date_deadline && (
-              <span style={{ fontSize: '.7rem', color: task.date_deadline < new Date().toISOString().split('T')[0] ? 'var(--danger)' : 'var(--text-muted)' }}>
-                📅 {task.date_deadline}
+              <span style={{ fontSize: '.7rem', color: isOverdue ? 'var(--danger)' : 'var(--text-muted)',
+                fontWeight: isOverdue ? 700 : 400 }}>
+                📅 {task.date_deadline}{isOverdue ? ' ⚠️' : ''}
               </span>
+            )}
+            {isMilestone && (
+              <span style={{ fontSize: '.65rem', background: '#f3e8ff', color: '#7c3aed',
+                padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>JALON</span>
             )}
           </div>
         </div>
@@ -139,9 +170,10 @@ function TaskNode({ task, projectId, projectName, depth = 0, allTasks }) {
         </div>
       )}
 
-      {open && children.map(child => (
+      {open && children.map((child, i) => (
         <TaskNode key={child.id} task={child} projectId={projectId}
-          projectName={projectName} depth={depth + 1} allTasks={allTasks} />
+          projectName={projectName} depth={depth + 1} allTasks={allTasks}
+          wbsNumber={wbsNumber ? `${wbsNumber}.${i + 1}` : undefined} />
       ))}
     </div>
   )
@@ -157,12 +189,26 @@ export default function TaskTree({ projectId, projectName }) {
   if (isLoading) return <div className="loading">Chargement des tâches…</div>
   if (!tasks.length) return <div className="empty-state"><div className="icon">📭</div><p>Aucune tâche</p></div>
 
-  const roots = tasks.filter(t => !t.parent_id)
+  // Exclude risk/issue tasks from WBS (they appear in the Risk Register)
+  const wbsTasks = tasks.filter(t => !RISK_RE.test(t.name) && !ISSUE_RE.test(t.name))
+  const roots = wbsTasks.filter(t => !t.parent_id)
+
+  const milestones = roots.filter(t => MILESTONE_RE.test(t.name))
+  const regular = roots.filter(t => !MILESTONE_RE.test(t.name))
+
   return (
     <div>
-      {roots.map(t => (
+      {milestones.length > 0 && (
+        <div style={{ marginBottom: '.5rem', padding: '.3rem .5rem',
+          background: '#faf5ff', borderRadius: 6, fontSize: '.7rem',
+          color: '#7c3aed', fontWeight: 700 }}>
+          ◆ {milestones.length} jalon{milestones.length > 1 ? 's' : ''} identifié{milestones.length > 1 ? 's' : ''}
+        </div>
+      )}
+      {roots.map((t, i) => (
         <TaskNode key={t.id} task={t} projectId={projectId}
-          projectName={projectName} depth={0} allTasks={tasks} />
+          projectName={projectName} depth={0} allTasks={wbsTasks}
+          wbsNumber={String(i + 1)} />
       ))}
     </div>
   )
