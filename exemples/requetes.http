@@ -1,0 +1,92 @@
+### Passerelle Odoo — Requêtes de test
+### Extension VS Code recommandée : "REST Client" (humao.rest-client)
+### Remplacez la valeur de @cle par votre clé API personnelle.
+
+@base = https://odoo-gateway-kappa.vercel.app
+@cle = concours_vm0MF_Ujrf9y3k-OSbu_MhUihpr0Lk5c
+
+### 1. Santé de la passerelle (public)
+GET {{base}}/api/health
+
+### 2. Mon profil candidat
+GET {{base}}/api/me
+Authorization: Bearer {{cle}}
+
+### 3. Lister les projets
+POST {{base}}/api/odoo/search_read
+Authorization: Bearer {{cle}}
+Content-Type: application/json
+
+{
+  "model": "project.project",
+  "fields": ["id", "name"],
+  "limit": 20
+}
+
+### 4. Lister les employés
+POST {{base}}/api/odoo/search_read
+Authorization: Bearer {{cle}}
+Content-Type: application/json
+
+{
+  "model": "hr.employee",
+  "fields": ["id", "name", "work_email", "department_id"],
+  "limit": 50
+}
+
+### 5. Découvrir le schéma des feuilles de temps
+POST {{base}}/api/odoo/fields
+Authorization: Bearer {{cle}}
+Content-Type: application/json
+
+{
+  "model": "account.analytic.line"
+}
+
+### 6. Compter les tâches d'un projet
+POST {{base}}/api/odoo/search_count
+Authorization: Bearer {{cle}}
+Content-Type: application/json
+
+{
+  "model": "project.task",
+  "domain": [["project_id", "=", 5]]
+}
+
+### 7. Me retrouver dans Odoo par mon nom (-> employee_id)
+POST {{base}}/api/odoo/search_read
+Authorization: Bearer {{cle}}
+Content-Type: application/json
+
+{
+  "model": "hr.employee",
+  "domain": [["name", "ilike", "VOTRE_NOM"]],
+  "fields": ["id", "name", "work_email", "department_id"]
+}
+
+### 8. Créer une feuille de temps (employee_id explicite)
+POST {{base}}/api/odoo/create
+Authorization: Bearer {{cle}}
+Content-Type: application/json
+
+{
+  "model": "account.analytic.line",
+  "values": {
+    "name": "Saisie de test",
+    "employee_id": 485,
+    "project_id": 5,
+    "date": "2026-06-19",
+    "unit_amount": 2.0
+  }
+}
+
+### 9. Modifier une feuille de temps
+POST {{base}}/api/odoo/write
+Authorization: Bearer {{cle}}
+Content-Type: application/json
+
+{
+  "model": "account.analytic.line",
+  "ids": [1234],
+  "values": { "unit_amount": 3.0 }
+}
