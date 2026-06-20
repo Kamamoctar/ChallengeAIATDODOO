@@ -132,6 +132,57 @@ export const COMMS_CONFIG = {
   ],
 }
 
+export const RESOURCE_CONFIG = {
+  prefix: 'RESOURCE',
+  title: 'Ressources du Projet',
+  isoRef: 'ISO 21500 §4.3.16-17',
+  isoNote: "Identifier et planifier les ressources humaines nécessaires au projet. Définir les rôles, responsabilités et disponibilités de chaque membre de l'équipe projet.",
+  nameField: 'nom',
+  emptyMsg: 'Aucune ressource enregistrée.',
+  columns: [
+    { key: 'nom',           label: 'Nom / Entité',    width: 130 },
+    { key: 'role',          label: 'Rôle',            width: 120 },
+    { key: 'competences',   label: 'Compétences',     width: 150 },
+    { key: 'disponibilite', label: 'Dispo.',          width: 90, badge: true },
+    { key: 'charge',        label: 'Charge estimée',  width: 110 },
+  ],
+  fields: [
+    { key: 'nom',           label: 'Nom / Entité',          type: 'text',   placeholder: 'Prénom Nom ou prestataire', required: true },
+    { key: 'role',          label: 'Rôle dans le projet',   type: 'text',   placeholder: 'Chef projet, Dev, Analyste…' },
+    { key: 'competences',   label: 'Compétences clés',      type: 'text',   placeholder: 'Python, Gestion projet, SQL…' },
+    { key: 'disponibilite', label: 'Disponibilité',         type: 'select', options: ['Plein temps', 'Mi-temps', '25%', 'Ponctuel', 'Indisponible'] },
+    { key: 'charge',        label: 'Charge estimée',        type: 'text',   placeholder: 'Ex: 20h/sem, 3 jours/sem…' },
+    { key: 'contact',       label: 'Contact / Email',       type: 'text',   placeholder: 'email@exemple.com' },
+    { key: 'notes',         label: 'Notes / Contraintes',   type: 'textarea', placeholder: 'Contraintes, dates de congé, dépendances…', fullWidth: true },
+  ],
+}
+
+export const QUALITY_CONFIG = {
+  prefix: 'QUALITY',
+  title: 'Plan Qualité',
+  isoRef: 'ISO 21500 §4.3.31-33',
+  isoNote: "Définir les indicateurs et contrôles qualité du projet. Identifier comment mesurer que les livrables respectent les standards et les attentes du commanditaire.",
+  nameField: 'indicateur',
+  emptyMsg: 'Aucun indicateur qualité défini.',
+  columns: [
+    { key: 'indicateur',    label: 'Indicateur / Critère', width: 160 },
+    { key: 'methode',       label: 'Méthode',              width: 130 },
+    { key: 'valeur_cible',  label: 'Cible',                width: 80 },
+    { key: 'frequence',     label: 'Fréquence',            width: 100 },
+    { key: 'responsable',   label: 'Responsable',          width: 100 },
+    { key: 'statut',        label: 'Statut',               width: 100, badge: true },
+  ],
+  fields: [
+    { key: 'indicateur',    label: 'Indicateur / Critère qualité', type: 'text',     placeholder: 'Ex: Taux de défauts, couverture tests…', required: true, fullWidth: true },
+    { key: 'methode',       label: 'Méthode de mesure',           type: 'text',     placeholder: 'Revue de code, test utilisateur, audit…' },
+    { key: 'valeur_cible',  label: 'Valeur cible',                type: 'text',     placeholder: 'Ex: < 5%, ≥ 80%, 0 défaut…' },
+    { key: 'frequence',     label: 'Fréquence de contrôle',       type: 'select',   options: ['Quotidien', 'Hebdomadaire', 'À chaque livrable', 'En fin de phase', 'Ponctuel'] },
+    { key: 'responsable',   label: 'Responsable',                 type: 'text',     placeholder: 'Nom / rôle' },
+    { key: 'statut',        label: 'Statut',                      type: 'select',   options: ['Conforme', 'À surveiller', 'Non conforme'] },
+    { key: 'notes',         label: 'Notes / Actions correctives', type: 'textarea', placeholder: 'Observations, mesures correctives…', fullWidth: true },
+  ],
+}
+
 export const PROCUREMENT_CONFIG = {
   prefix: 'PROCUREMENT',
   title: 'Registre des Achats',

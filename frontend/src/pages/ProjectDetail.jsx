@@ -12,6 +12,7 @@ import ISORegistry from '../components/ISORegistry'
 import {
   STAKEHOLDER_CONFIG, CHANGE_CONFIG, DELIVERABLE_CONFIG,
   LESSON_CONFIG, COMMS_CONFIG, PROCUREMENT_CONFIG,
+  RESOURCE_CONFIG, QUALITY_CONFIG,
 } from '../components/ISOConfigs'
 
 const TABS = [
@@ -19,8 +20,10 @@ const TABS = [
   { key: 'risks',        label: 'Risques',       icon: '⚠️'  },
   { key: 'charter',      label: 'Charte',        icon: '📋'  },
   { key: 'stakeholders', label: 'Parties',       icon: '👥'  },
+  { key: 'resources',    label: 'Ressources',    icon: '👤'  },
   { key: 'changes',      label: 'Changements',   icon: '🔄'  },
   { key: 'deliverables', label: 'Livrables',     icon: '✅'  },
+  { key: 'quality',      label: 'Qualité',       icon: '🎯'  },
   { key: 'lessons',      label: 'Leçons',        icon: '📚'  },
   { key: 'comms',        label: 'Comm.',         icon: '📢'  },
   { key: 'procurement',  label: 'Achats',        icon: '🛒'  },
@@ -106,11 +109,28 @@ export default function ProjectDetail() {
   }
 
   // Stats
-  const wbsTasks     = allTasks.filter(t => !/^\[(RISK|RISQUE|ISSUE|PROBLEME|CHARTER|STAKEHOLDER|CHANGE|DELIVERABLE|LESSON|COMMS|PROCUREMENT)\]/i.test(t.name))
+  const wbsTasks     = allTasks.filter(t => !/^\[(RISK|RISQUE|ISSUE|PROBLEME|CHARTER|STAKEHOLDER|CHANGE|DELIVERABLE|LESSON|COMMS|PROCUREMENT|RESOURCE|QUALITY|MILESTONE)\]/i.test(t.name))
   const rootTasks    = wbsTasks.filter(t => !t.parent_id)
   const doneTasks    = rootTasks.filter(t => Array.isArray(t.stage_id) && /done|terminé|closed|fini|validé/i.test(t.stage_id[1] || '')).length
   const completionPct = rootTasks.length > 0 ? Math.round((doneTasks / rootTasks.length) * 100) : 0
   const overdueTasks  = wbsTasks.filter(t => t.date_deadline && t.date_deadline < new Date().toISOString().split('T')[0]).length
+
+  // ISO 21500 compliance score (11 criteria)
+  const isoChecks = [
+    allTasks.some(t => /^\[CHARTER\]/i.test(t.name)),
+    allTasks.some(t => /^\[STAKEHOLDER\]/i.test(t.name)),
+    rootTasks.length > 0,
+    allTasks.some(t => /^\[RISK\]/i.test(t.name)),
+    allTasks.some(t => /^\[DELIVERABLE\]/i.test(t.name)),
+    allTasks.some(t => /^\[CHANGE\]/i.test(t.name)),
+    allTasks.some(t => /^\[LESSON\]/i.test(t.name)),
+    allTasks.some(t => /^\[COMMS\]/i.test(t.name)),
+    allTasks.some(t => /^\[PROCUREMENT\]/i.test(t.name)),
+    allTasks.some(t => /^\[RESOURCE\]/i.test(t.name)),
+    allTasks.some(t => /^\[QUALITY\]/i.test(t.name)),
+  ]
+  const isoScore = isoChecks.filter(Boolean).length
+  const isoScorePct = Math.round((isoScore / isoChecks.length) * 100)
 
   if (loadingProject) return <div className="loading" style={{ padding: '2rem' }}>Chargement…</div>
 
@@ -138,18 +158,23 @@ export default function ProjectDetail() {
               {completionPct}% complet
             </span>
             {overdueTasks > 0 && (
-              <span style={{ fontSize: '.65rem', background: '#fef2f2', color: '#dc2626',
+              <span style={{ fontSize: '.65rem', background: 'var(--danger-light)', color: 'var(--danger)',
                 borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>
                 {overdueTasks} en retard
               </span>
             )}
+            <span style={{ fontSize: '.65rem', borderRadius: 4, padding: '1px 5px', fontWeight: 700,
+              background: isoScorePct >= 80 ? '#e6f7f6' : isoScorePct >= 50 ? 'var(--warning-light)' : 'var(--danger-light)',
+              color: isoScorePct >= 80 ? 'var(--success)' : isoScorePct >= 50 ? '#b45309' : 'var(--danger)' }}>
+              ISO {isoScorePct}%
+            </span>
           </div>
         </div>
       </header>
 
       {/* ── ISO PHASE ───────────────────────────── */}
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '.75rem 1rem' }}>
-        <ISOPhase projectId={projectId} description={project?.description} />
+        <ISOPhase projectId={projectId} description={project?.description} allTasks={allTasks} />
       </div>
 
       {/* ── QUICK ACTIONS ───────────────────────── */}
@@ -323,6 +348,15 @@ export default function ProjectDetail() {
           </>
         )}
 
+        {tab === 'resources' && (
+          <>
+            <div className="section-title">Ressources du Projet</div>
+            <div className="card">
+              <ISORegistry projectId={projectId} {...RESOURCE_CONFIG} />
+            </div>
+          </>
+        )}
+
         {tab === 'changes' && (
           <>
             <div className="section-title">Journal des Modifications</div>
@@ -337,6 +371,15 @@ export default function ProjectDetail() {
             <div className="section-title">Registre des Livrables</div>
             <div className="card">
               <ISORegistry projectId={projectId} {...DELIVERABLE_CONFIG} />
+            </div>
+          </>
+        )}
+
+        {tab === 'quality' && (
+          <>
+            <div className="section-title">Plan Qualité</div>
+            <div className="card">
+              <ISORegistry projectId={projectId} {...QUALITY_CONFIG} />
             </div>
           </>
         )}

@@ -1,20 +1,27 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --primary: #6366f1;
-  --primary-dark: #4f46e5;
-  --primary-light: #eef2ff;
-  --bg: #f8fafc;
+  /* Identité ATD */
+  --primary: #0a4b8b;
+  --primary-dark: #203c48;
+  --primary-light: #e8f4f8;
+  --accent: #139cbc;
+  --accent-light: #8ed4de;
+  --teal-light: #5acaad;
+  /* Fond / surface */
+  --bg: #f2f7f9;
   --surface: #ffffff;
-  --border: #e2e8f0;
-  --text: #1e293b;
-  --text-muted: #64748b;
-  --danger: #ef4444;
-  --danger-light: #fef2f2;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --warning-light: #fffbeb;
-  --overtime: #f97316;
+  --border: #d0e4ea;
+  --text: #1a2e38;
+  --text-muted: #5a7080;
+  /* Status */
+  --danger: #d30731;
+  --danger-light: #ffeef2;
+  --success: #1c9a97;
+  --warning: #f5c36e;
+  --warning-light: #fff8e8;
+  --overtime: #ef532b;
+  /* Layout */
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
@@ -318,7 +325,7 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
   color: #fff;
   font-size: 1.4rem;
   font-weight: 300;
-  box-shadow: 0 4px 16px rgba(99,102,241,.45);
+  box-shadow: 0 4px 16px rgba(10,75,139,.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -485,7 +492,7 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
 .badge-warning { background: var(--warning-light); color: var(--warning); }
 .badge-danger { background: var(--danger-light); color: var(--danger); }
 .badge-overtime { background: #fff7ed; color: var(--overtime); }
-.badge-success { background: #f0fdf4; color: #16a34a; }
+.badge-success { background: #e6f7f6; color: var(--success); }
 
 .empty-state {
   text-align: center;

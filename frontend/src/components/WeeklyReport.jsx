@@ -8,11 +8,11 @@ import { fr } from 'date-fns/locale'
 
 const DAILY_GOAL = 8
 const WEEKLY_GOAL = 40
-const PRIMARY = '#6366f1'
-const OVERTIME = '#f97316'
-const TODAY_COLOR = '#4f46e5'
+const PRIMARY    = '#0a4b8b'
+const OVERTIME   = '#ef532b'
+const TODAY_CLR  = '#203c48'
 
-const COLORS = ['#6366f1','#f97316','#22c55e','#f59e0b','#ec4899','#06b6d4','#84cc16','#a855f7']
+const COLORS = ['#0a4b8b','#ef532b','#1c9a97','#f5c36e','#139cbc','#5acaad','#8ed4de','#d30731']
 
 function buildDayData(entries, days = 7) {
   const today = new Date()
@@ -53,7 +53,7 @@ function CustomBarTooltip({ active, payload, label }) {
   const total = payload.reduce((s, p) => s + (p.value || 0), 0)
   const isOver = total > DAILY_GOAL
   return (
-    <div style={{ background: '#1e293b', color: '#fff', borderRadius: 8,
+    <div style={{ background: '#1a2e38', color: '#fff', borderRadius: 8,
       padding: '.6rem .9rem', fontSize: '.8rem', boxShadow: '0 4px 16px rgba(0,0,0,.3)' }}>
       <div style={{ fontWeight: 700, marginBottom: '.25rem' }}>{label}</div>
       <div>{total.toFixed(2)}h {isOver && <span style={{ color: OVERTIME }}>🔥 +{(total - DAILY_GOAL).toFixed(2)}h</span>}</div>
@@ -68,15 +68,15 @@ export function DayBarChart({ entries }) {
   return (
     <ResponsiveContainer width="100%" height={180}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} barSize={28}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-        <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, maxH]} />
-        <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'rgba(99,102,241,.06)' }} />
-        <ReferenceLine y={DAILY_GOAL} stroke="#6366f1" strokeDasharray="4 3" strokeWidth={1.5}
-          label={{ value: '8h', position: 'right', fontSize: 10, fill: '#6366f1' }} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#d0e4ea" vertical={false} />
+        <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#5a7080' }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 10, fill: '#5a7080' }} axisLine={false} tickLine={false} domain={[0, maxH]} />
+        <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'rgba(10,75,139,.06)' }} />
+        <ReferenceLine y={DAILY_GOAL} stroke={PRIMARY} strokeDasharray="4 3" strokeWidth={1.5}
+          label={{ value: '8h', position: 'right', fontSize: 10, fill: PRIMARY }} />
         <Bar dataKey="normal" stackId="a" radius={[0, 0, 4, 4]}>
           {data.map((entry, i) => (
-            <Cell key={i} fill={entry.isToday ? TODAY_COLOR : PRIMARY} opacity={entry.isToday ? 1 : 0.75} />
+            <Cell key={i} fill={entry.isToday ? TODAY_CLR : PRIMARY} opacity={entry.isToday ? 1 : 0.75} />
           ))}
         </Bar>
         <Bar dataKey="over" stackId="a" fill={OVERTIME} radius={[4, 4, 0, 0]} />
@@ -87,7 +87,7 @@ export function DayBarChart({ entries }) {
 
 export function ProjectPieChart({ entries }) {
   const data = buildProjectData(entries)
-  if (!data.length) return <div style={{ textAlign: 'center', color: '#94a3b8', padding: '1rem', fontSize: '.85rem' }}>Aucune donnée</div>
+  if (!data.length) return <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem', fontSize: '.85rem' }}>Aucune donnée</div>
 
   return (
     <ResponsiveContainer width="100%" height={200}>
@@ -100,7 +100,7 @@ export function ProjectPieChart({ entries }) {
         <Tooltip formatter={(v) => [`${v}h`, '']}
           contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,.15)', fontSize: '.8rem' }} />
         <Legend iconType="circle" iconSize={8}
-          formatter={(v) => <span style={{ fontSize: '.72rem', color: '#64748b' }}>{v}</span>} />
+          formatter={(v) => <span style={{ fontSize: '.72rem', color: 'var(--text-muted)' }}>{v}</span>} />
       </PieChart>
     </ResponsiveContainer>
   )
@@ -144,7 +144,7 @@ export function WeeklyStats({ entries, compareEntries, memberName, compareName }
             <div style={{ fontSize: '.7rem', color: 'var(--primary)', fontWeight: 700 }}>{memberName?.split(' ')[0]}</div>
             <div style={{ fontSize: '1.1rem', fontWeight: 800 }}>{total.toFixed(1)}h</div>
           </div>
-          <div style={{ flex: 1, background: '#fff7ed', borderRadius: 8, padding: '.6rem .75rem' }}>
+          <div style={{ flex: 1, background: '#fff3ee', borderRadius: 8, padding: '.6rem .75rem' }}>
             <div style={{ fontSize: '.7rem', color: 'var(--overtime)', fontWeight: 700 }}>{compareName?.split(' ')[0]}</div>
             <div style={{ fontSize: '1.1rem', fontWeight: 800 }}>{compareTotal.toFixed(1)}h</div>
           </div>

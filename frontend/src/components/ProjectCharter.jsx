@@ -22,6 +22,9 @@ const SECTIONS = [
   { key: 'sponsor',         label: 'Commanditaire (Sponsor)',     placeholder: 'Nom, rôle…', rows: 1 },
   { key: 'chef_projet',     label: 'Chef de projet',              placeholder: 'Nom, contact…', rows: 1 },
   { key: 'budget_estime',   label: 'Budget estimé',              placeholder: 'Montant ou fourchette…', rows: 1 },
+  { key: 'budget_valide',   label: 'Budget validé (montant)',     placeholder: 'Ex: 5 000 000 FCFA, 10 000 €…', rows: 1 },
+  { key: 'date_debut',      label: 'Date de début prévue',        placeholder: 'JJ/MM/AAAA…', rows: 1 },
+  { key: 'date_fin',        label: 'Date de fin prévue',          placeholder: 'JJ/MM/AAAA…', rows: 1 },
 ]
 
 const EMPTY = Object.fromEntries(SECTIONS.map(s => [s.key, '']))

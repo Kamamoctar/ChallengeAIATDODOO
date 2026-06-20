@@ -24,8 +24,7 @@ export default function App() {
       {/* ── SIDEBAR (desktop only) ──────────────────── */}
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-title">Odoo Daily</div>
-          <div className="sidebar-logo-sub">Togo Data AI Lab</div>
+          <img src="/LOGO_ATD.png" alt="ATD" style={{ height: 38, objectFit: 'contain', maxWidth: '100%' }} />
         </div>
 
         <nav className="sidebar-nav">
