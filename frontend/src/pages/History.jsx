@@ -47,11 +47,32 @@ export default function History() {
           const dayEntries = grouped[day]
           const total = dayEntries.reduce((s, e) => s + e.unit_amount, 0)
           const label = format(parseISO(day), 'EEEE d MMMM', { locale: fr })
+          const isOver = total > 8
+          const pct = Math.min((total / 8) * 100, 100)
           return (
             <div key={day} style={{ marginBottom: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} className="section-title">
                 <span style={{ textTransform: 'capitalize' }}>{label}</span>
-                <span style={{ color: 'var(--primary)' }}>{total.toFixed(1)}h</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem' }}>
+                  {isOver && (
+                    <span className="badge badge-overtime" style={{ fontSize: '.65rem' }}>
+                      🔥 +{(total - 8).toFixed(1)}h
+                    </span>
+                  )}
+                  <span style={{ color: isOver ? 'var(--overtime)' : 'var(--primary)', fontWeight: 700 }}>
+                    {total.toFixed(1)}h
+                  </span>
+                </div>
+              </div>
+              <div style={{ marginBottom: '.5rem', height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${pct}%`,
+                  background: isOver
+                    ? 'linear-gradient(90deg, var(--primary) 60%, var(--overtime))'
+                    : 'var(--primary)',
+                  borderRadius: 2,
+                }} />
               </div>
               <div className="card">
                 {dayEntries.map(e => (

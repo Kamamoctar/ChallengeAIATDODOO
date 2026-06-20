@@ -6,39 +6,92 @@ import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
 import Focus from './pages/Focus'
 import FloatingTimer from './components/FloatingTimer'
+import { useTeam } from './context/TeamContext'
+
+const NAV = [
+  { to: '/',        icon: '🏠', label: "Aujourd'hui", end: true },
+  { to: '/focus',   icon: '🎯', label: 'Focus' },
+  { to: '/projects',icon: '📁', label: 'Projets' },
+  { to: '/history', icon: '📅', label: 'Historique' },
+]
 
 export default function App() {
+  const { active, members, setActive } = useTeam()
+
   return (
-    <>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/new" element={<QuickEntry />} />
-        <Route path="/history" element={<History />} />
-        <Route path="/projects" element={<Projects />} />
-        <Route path="/projects/:id" element={<ProjectDetail />} />
-        <Route path="/focus" element={<Focus />} />
-      </Routes>
+    <div className="app-shell">
 
-      <FloatingTimer />
+      {/* ── SIDEBAR (desktop only) ──────────────────── */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-title">Odoo Daily</div>
+          <div className="sidebar-logo-sub">Togo Data AI Lab</div>
+        </div>
 
+        <nav className="sidebar-nav">
+          {NAV.map(n => (
+            <NavLink key={n.to} to={n.to} end={n.end}>
+              <span className="nav-icon">{n.icon}</span>
+              {n.label}
+            </NavLink>
+          ))}
+          <NavLink to="/new">
+            <span className="nav-icon">➕</span>
+            Nouvelle entrée
+          </NavLink>
+        </nav>
+
+        <div className="sidebar-team">
+          <div className="sidebar-team-label">Membre actif</div>
+          {members?.map(m => (
+            <button
+              key={m.id}
+              onClick={() => setActive(m.id)}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                padding: '.45rem .65rem',
+                borderRadius: 6,
+                fontSize: '.82rem',
+                fontWeight: active.id === m.id ? 700 : 400,
+                color: active.id === m.id ? 'var(--primary)' : 'var(--text-muted)',
+                background: active.id === m.id ? 'var(--primary-light)' : 'transparent',
+                marginBottom: 2,
+                cursor: 'pointer',
+                border: 'none',
+              }}
+            >
+              {active.id === m.id ? '● ' : '○ '}
+              {m.name.split(' ')[0]}
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      {/* ── MAIN ────────────────────────────────────── */}
+      <div className="main-content">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/new" element={<QuickEntry />} />
+          <Route path="/history" element={<History />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/projects/:id" element={<ProjectDetail />} />
+          <Route path="/focus" element={<Focus />} />
+        </Routes>
+
+        <FloatingTimer />
+      </div>
+
+      {/* ── BOTTOM NAV (mobile only) ─────────────────── */}
       <nav className="bottom-nav">
-        <NavLink to="/" end>
-          <span>🏠</span>
-          <span>Aujourd'hui</span>
-        </NavLink>
-        <NavLink to="/focus">
-          <span>🎯</span>
-          <span>Focus</span>
-        </NavLink>
-        <NavLink to="/projects">
-          <span>📁</span>
-          <span>Projets</span>
-        </NavLink>
-        <NavLink to="/history">
-          <span>📅</span>
-          <span>Historique</span>
-        </NavLink>
+        {NAV.map(n => (
+          <NavLink key={n.to} to={n.to} end={n.end}>
+            <span className="nav-icon">{n.icon}</span>
+            <span>{n.label}</span>
+          </NavLink>
+        ))}
       </nav>
-    </>
+    </div>
   )
 }
