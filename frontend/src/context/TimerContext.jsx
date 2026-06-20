@@ -1,52 +1,146 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { format } from 'date-fns'
+import toast from 'react-hot-toast'
+import { api } from '../api/odoo'
 
 const TimerContext = createContext(null)
-const STORAGE_KEY = 'odoo_timer'
+const STORAGE_KEY = 'odoo_timer_v2'
+const AUTO_STOP_SECS = 45 * 60   // 45 minutes
+
+function loadTimer() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) } catch { return null }
+}
 
 export function TimerProvider({ children }) {
-  const [timer, setTimer] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null } catch { return null }
-  })
+  const qc = useQueryClient()
+  const [timer, setTimer] = useState(loadTimer)
   const [elapsed, setElapsed] = useState(0)
+  const [autoStopped, setAutoStopped] = useState(false)
   const intervalRef = useRef(null)
 
+  const computeElapsed = useCallback((t) => {
+    if (!t) return 0
+    const work = (t.workMs || 0) + (t.paused || !t.lastStart ? 0 : Date.now() - t.lastStart)
+    return Math.floor(work / 1000)
+  }, [])
+
   useEffect(() => {
-    if (timer?.startTime) {
-      const tick = () => setElapsed(Math.floor((Date.now() - timer.startTime) / 1000))
-      tick()
-      intervalRef.current = setInterval(tick, 1000)
-    } else {
-      clearInterval(intervalRef.current)
-      setElapsed(0)
+    clearInterval(intervalRef.current)
+
+    if (!timer) { setElapsed(0); return }
+
+    if (timer.paused) {
+      setElapsed(computeElapsed(timer))
+      return
     }
+
+    const tick = () => {
+      const secs = computeElapsed(timer)
+      setElapsed(secs)
+
+      if (secs >= AUTO_STOP_SECS) {
+        clearInterval(intervalRef.current)
+        const now = Date.now()
+        const updated = {
+          ...timer,
+          workMs: (timer.workMs || 0) + (now - timer.lastStart),
+          paused: true,
+          lastStart: null,
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+        setTimer(updated)
+        setAutoStopped(true)
+        setElapsed(Math.floor(updated.workMs / 1000))
+      }
+    }
+
+    tick()
+    intervalRef.current = setInterval(tick, 1000)
     return () => clearInterval(intervalRef.current)
-  }, [timer])
+  }, [timer, computeElapsed])
 
   function start(task) {
-    const t = { ...task, startTime: Date.now() }
+    clearInterval(intervalRef.current)
+    const t = { ...task, workMs: 0, lastStart: Date.now(), paused: false }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(t))
     setTimer(t)
+    setAutoStopped(false)
+    setElapsed(0)
   }
 
-  function stop() {
-    if (!timer) return null
-    const hours = elapsed / 3600
-    const result = { ...timer, hours: Math.max(0.25, parseFloat(hours.toFixed(2))) }
+  function pause() {
+    if (!timer || timer.paused) return
+    clearInterval(intervalRef.current)
+    const now = Date.now()
+    const updated = {
+      ...timer,
+      workMs: (timer.workMs || 0) + (now - timer.lastStart),
+      paused: true,
+      lastStart: null,
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+    setTimer(updated)
+    setElapsed(Math.floor(updated.workMs / 1000))
+  }
+
+  function resume() {
+    if (!timer || !timer.paused) return
+    const updated = { ...timer, paused: false, lastStart: Date.now() }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+    setTimer(updated)
+    setAutoStopped(false)
+  }
+
+  async function stop() {
+    if (!timer) return
+    clearInterval(intervalRef.current)
+    const finalWorkMs = (timer.workMs || 0) + (timer.paused || !timer.lastStart ? 0 : Date.now() - timer.lastStart)
+    const hours = parseFloat(Math.max(0.08, finalWorkMs / 3600000).toFixed(2))
+    const saved = { ...timer }
+
     localStorage.removeItem(STORAGE_KEY)
     setTimer(null)
-    return result
+    setElapsed(0)
+    setAutoStopped(false)
+
+    if (saved.projectId && finalWorkMs >= 60_000) {
+      try {
+        await api.createTimesheet({
+          employee_id: saved.employeeId,
+          project_id: saved.projectId,
+          task_id: saved.taskId || null,
+          name: saved.taskName || 'Focus',
+          date: format(new Date(), 'yyyy-MM-dd'),
+          unit_amount: hours,
+        })
+        qc.invalidateQueries({ queryKey: ['timesheets-today'] })
+        qc.invalidateQueries({ queryKey: ['timesheets-week'] })
+        toast.success(`✅ ${hours}h enregistrées → ${saved.projectName}`)
+      } catch (e) {
+        toast.error(`Erreur enregistrement : ${e.message}`)
+      }
+    } else if (finalWorkMs < 60_000) {
+      toast('Durée inférieure à 1 min — non enregistré', { icon: 'ℹ️' })
+    }
   }
 
   function cancel() {
+    clearInterval(intervalRef.current)
     localStorage.removeItem(STORAGE_KEY)
     setTimer(null)
+    setElapsed(0)
+    setAutoStopped(false)
   }
 
-  const isRunning = !!timer
-  const runningTaskId = timer?.taskId || null
-
   return (
-    <TimerContext.Provider value={{ timer, elapsed, isRunning, runningTaskId, start, stop, cancel }}>
+    <TimerContext.Provider value={{
+      timer, elapsed, isRunning: !!timer,
+      isPaused: timer?.paused || false,
+      autoStopped,
+      runningTaskId: timer?.taskId || null,
+      start, pause, resume, stop, cancel,
+    }}>
       {children}
     </TimerContext.Provider>
   )

@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { format, parseISO, isPast, differenceInDays } from 'date-fns'
+import { format, parseISO, differenceInDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import {
+  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+} from 'recharts'
 import { api } from '../api/odoo'
 import { useTeam } from '../context/TeamContext'
 import EmployeeToggle from '../components/EmployeeToggle'
@@ -13,45 +17,45 @@ import { parsePhase, ISO_PHASES } from '../components/ISOPhase'
 const DAILY_GOAL = 8
 const WEEKLY_GOAL = 40
 
+/* ─── Root ────────────────────────────────────────────────────── */
 export default function Dashboard() {
   const { active, members } = useTeam()
   const compare = members?.find(m => m.id !== active.id)
   const [tab, setTab] = useState('personal')
-
   const today = format(new Date(), 'EEEE d MMMM', { locale: fr })
-  const qkToday = ['timesheets-today', active.id]
-  const qkWeek  = ['timesheets-week', active.id]
-  const qkCmp   = ['timesheets-week', compare?.id]
 
   const { data: todayEntries = [], isLoading: loadingToday } = useQuery({
-    queryKey: qkToday,
+    queryKey: ['timesheets-today', active.id],
     queryFn: () => api.getToday(active.id),
     enabled: active.id > 0,
   })
-
   const { data: weekEntries = [] } = useQuery({
-    queryKey: qkWeek,
+    queryKey: ['timesheets-week', active.id],
     queryFn: () => api.getWeek(active.id, 7),
     enabled: active.id > 0,
   })
-
   const { data: compareEntries = [] } = useQuery({
-    queryKey: qkCmp,
+    queryKey: ['timesheets-week', compare?.id],
     queryFn: () => api.getWeek(compare.id, 7),
     enabled: !!compare?.id,
   })
-
   const { data: projects = [] } = useQuery({
     queryKey: ['projects-detail'],
     queryFn: api.getProjectsDetail,
     staleTime: 120_000,
   })
 
-  const { total: weekTotal, todayH, avgPerDay, overtimeH, weekOvertimeH } = buildWeekStats(weekEntries)
-
+  const weekStats = buildWeekStats(weekEntries)
+  const { total: weekTotal, todayH, avgPerDay, overtimeH, weekOvertimeH } = weekStats
   const dailyPct    = Math.min((todayH / DAILY_GOAL) * 100, 100)
   const overtimePct = overtimeH > 0 ? Math.min((overtimeH / DAILY_GOAL) * 100, 40) : 0
   const isOverToday = todayH > DAILY_GOAL
+
+  const TABS = [
+    { id: 'personal',  label: '👤 Moi' },
+    { id: 'chef',      label: '📊 Chef de Projet' },
+    { id: 'direction', label: '🏛️ Direction' },
+  ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
@@ -63,16 +67,12 @@ export default function Dashboard() {
         <EmployeeToggle />
       </header>
 
-      {/* ── TABS ─────────────────────────────── */}
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)',
-        display: 'flex', padding: '0 1.25rem', gap: '.25rem' }}>
-        {[
-          { id: 'personal',  label: '👤 Personnel' },
-          { id: 'portfolio', label: '📊 Portefeuille' },
-        ].map(t => (
+        display: 'flex', padding: '0 .75rem', gap: '.1rem', overflowX: 'auto', scrollbarWidth: 'none' }}>
+        {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             style={{
-              padding: '.65rem .85rem', fontSize: '.82rem', fontWeight: 700,
+              padding: '.6rem .8rem', fontSize: '.78rem', fontWeight: 700, flexShrink: 0,
               color: tab === t.id ? 'var(--primary)' : 'var(--text-muted)',
               borderBottom: tab === t.id ? '2px solid var(--primary)' : '2px solid transparent',
               background: 'none', border: 'none', borderRadius: 0, cursor: 'pointer',
@@ -91,17 +91,20 @@ export default function Dashboard() {
           weekEntries={weekEntries} compareEntries={compareEntries}
           active={active} compare={compare}
           todayEntries={todayEntries} loadingToday={loadingToday}
-          qkToday={qkToday}
+          qkToday={['timesheets-today', active.id]}
         />
       )}
-
-      {tab === 'portfolio' && (
-        <PortfolioTab
-          projects={projects}
-          weekEntries={weekEntries}
-          compareEntries={compareEntries}
-          active={active}
-          compare={compare}
+      {tab === 'chef' && (
+        <ChefTab
+          projects={projects} weekEntries={weekEntries} compareEntries={compareEntries}
+          active={active} compare={compare}
+          weekTotal={weekTotal}
+        />
+      )}
+      {tab === 'direction' && (
+        <DirectionTab
+          projects={projects} weekEntries={weekEntries} compareEntries={compareEntries}
+          active={active} compare={compare}
         />
       )}
 
@@ -110,8 +113,7 @@ export default function Dashboard() {
   )
 }
 
-/* ─── TAB PERSONNEL ─────────────────────────────────────────── */
-
+/* ─── TAB : MOI (Personnel) ────────────────────────────────────── */
 function PersonalTab({
   todayH, weekTotal, avgPerDay, overtimeH, weekOvertimeH,
   dailyPct, overtimePct, isOverToday,
@@ -120,50 +122,30 @@ function PersonalTab({
 }) {
   return (
     <main className="page">
-      {/* KPI ROW */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '.75rem', marginBottom: '1rem' }}>
-        <StatCard
-          value={`${todayH.toFixed(1)}h`}
-          label="Aujourd'hui"
+        <StatCard value={`${todayH.toFixed(1)}h`} label="Aujourd'hui"
           sub={isOverToday ? `🔥 +${overtimeH.toFixed(1)}h overtime` : `/ ${DAILY_GOAL}h`}
-          accent={isOverToday}
-        />
-        <StatCard
-          value={`${weekTotal.toFixed(1)}h`}
-          label="Cette semaine"
-          sub={weekOvertimeH > 0 ? `🔥 +${weekOvertimeH.toFixed(1)}h` : `/ 40h`}
-        />
-        <StatCard
-          value={`${avgPerDay.toFixed(1)}h`}
-          label="Moy. / jour"
-          sub="jours travaillés"
-        />
-        <StatCard
-          value={`${Math.round((todayH / DAILY_GOAL) * 100)}%`}
-          label="Objectif jour"
+          accent={isOverToday} />
+        <StatCard value={`${weekTotal.toFixed(1)}h`} label="Cette semaine"
+          sub={weekOvertimeH > 0 ? `🔥 +${weekOvertimeH.toFixed(1)}h` : `/ 40h`} />
+        <StatCard value={`${avgPerDay.toFixed(1)}h`} label="Moy. / jour"
+          sub="jours travaillés" />
+        <StatCard value={`${Math.round((todayH / DAILY_GOAL) * 100)}%`} label="Objectif jour"
           sub={isOverToday ? 'Dépassé !' : `${(DAILY_GOAL - todayH).toFixed(1)}h restantes`}
-          highlight={isOverToday}
-        />
+          highlight={isOverToday} />
       </div>
 
-      {/* DAILY PROGRESS */}
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="card-title" style={{ marginBottom: '.5rem' }}>
           Progression du jour
-          {isOverToday && (
-            <span className="badge badge-overtime" style={{ marginLeft: '.5rem' }}>
-              🔥 {Math.round((todayH / DAILY_GOAL) * 100)}%
-            </span>
-          )}
+          {isOverToday && <span className="badge badge-overtime" style={{ marginLeft: '.5rem' }}>🔥 {Math.round((todayH / DAILY_GOAL) * 100)}%</span>}
         </div>
         <div className="progress-bar" style={{ height: 10, position: 'relative' }}>
           <div className="progress-bar-fill" style={{
             width: `${dailyPct}%`,
             background: isOverToday ? 'linear-gradient(90deg, var(--primary) 70%, var(--overtime) 100%)' : undefined,
           }} />
-          {isOverToday && (
-            <div className="progress-bar-overtime" style={{ width: `${overtimePct}%`, maxWidth: '25%' }} />
-          )}
+          {isOverToday && <div className="progress-bar-overtime" style={{ width: `${overtimePct}%`, maxWidth: '25%' }} />}
         </div>
         <div className="progress-label">
           <span style={{ color: 'var(--text-muted)', fontSize: '.72rem' }}>0h</span>
@@ -172,30 +154,23 @@ function PersonalTab({
         </div>
       </div>
 
-      {/* WEEKLY CHART */}
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="card-title">Répartition hebdomadaire</div>
-        <WeeklyStats
-          entries={weekEntries}
-          compareEntries={compareEntries}
-          memberName={active.name}
-          compareName={compare?.name}
-        />
+        <WeeklyStats entries={weekEntries} compareEntries={compareEntries}
+          memberName={active.name} compareName={compare?.name} />
         <div style={{ marginTop: '1.25rem' }}>
           <DayBarChart entries={weekEntries} />
         </div>
-        <div style={{ fontSize: '.7rem', color: 'var(--text-muted)', marginTop: '.4rem', textAlign: 'center' }}>
-          — ligne pointillée = objectif 8h · orange = heures supp.
+        <div style={{ fontSize: '.68rem', color: 'var(--text-muted)', marginTop: '.35rem', textAlign: 'center' }}>
+          ligne pointillée = objectif 8h · orange = heures supp.
         </div>
       </div>
 
-      {/* PROJECT BREAKDOWN */}
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="card-title">Répartition par projet (7 jours)</div>
         <ProjectPieChart entries={weekEntries} />
       </div>
 
-      {/* TODAY'S ENTRIES */}
       <div className="section-title">Entrées du jour</div>
       {loadingToday && <div className="loading">Chargement…</div>}
       {!loadingToday && todayEntries.length === 0 && (
@@ -207,151 +182,153 @@ function PersonalTab({
       )}
       {!loadingToday && todayEntries.length > 0 && (
         <div className="card">
-          {todayEntries.map(e => (
-            <EntryCard key={e.id} entry={e} queryKey={qkToday} />
-          ))}
+          {todayEntries.map(e => <EntryCard key={e.id} entry={e} queryKey={qkToday} />)}
         </div>
       )}
     </main>
   )
 }
 
-/* ─── TAB PORTEFEUILLE ───────────────────────────────────────── */
-
-function PortfolioTab({ projects, weekEntries, compareEntries, active, compare }) {
+/* ─── TAB : CHEF DE PROJET ──────────────────────────────────────── */
+function ChefTab({ projects, weekEntries, compareEntries, active, compare, weekTotal }) {
   const now = new Date()
-
-  const activeProjects = projects.filter(p => parsePhase(p.description) !== 'Closing')
-  const overdueProjects = projects.filter(p => p.date && isPast(parseISO(p.date)))
-
   const totalA = weekEntries.reduce((s, e) => s + (e.unit_amount || 0), 0)
   const totalB = compareEntries.reduce((s, e) => s + (e.unit_amount || 0), 0)
-  const teamTotal = totalA + totalB
-  const teamRate = Math.round((teamTotal / (2 * WEEKLY_GOAL)) * 100)
 
-  const phaseDist = ISO_PHASES.map(ph => ({
-    ...ph,
-    count: projects.filter(p => (parsePhase(p.description) || 'Initiating') === ph.id).length,
-  }))
-  const maxPhaseCount = Math.max(...phaseDist.map(p => p.count), 1)
+  const activeProjects = projects.filter(p => parsePhase(p.description) !== 'Closing')
+  const overdueProjects = projects.filter(p => p.date && differenceInDays(parseISO(p.date), now) < 0)
+  const atRiskProjects  = projects.filter(p => {
+    if (!p.date) return false
+    const d = differenceInDays(parseISO(p.date), now)
+    return d >= 0 && d <= 7
+  })
+
+  const maxPhaseCount = Math.max(...ISO_PHASES.map(ph =>
+    projects.filter(p => (parsePhase(p.description) || 'Planning') === ph.id).length
+  ), 1)
 
   const urgentProjects = projects
     .filter(p => p.date)
-    .map(p => {
-      const daysLeft = differenceInDays(parseISO(p.date), now)
-      return { ...p, daysLeft }
-    })
+    .map(p => ({ ...p, daysLeft: differenceInDays(parseISO(p.date), now) }))
     .filter(p => p.daysLeft <= 14)
     .sort((a, b) => a.daysLeft - b.daysLeft)
     .slice(0, 6)
 
+  const needsAction = [...overdueProjects, ...atRiskProjects.filter(p =>
+    !overdueProjects.find(o => o.id === p.id))]
+
   return (
     <main className="page">
-      {/* KPI ROW */}
+      {/* KPI Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '.75rem', marginBottom: '1rem' }}>
-        <StatCard
-          value={activeProjects.length}
-          label="Projets actifs"
-          sub={`sur ${projects.length} total`}
-          accent={false}
-          color="var(--primary)"
-        />
-        <StatCard
-          value={overdueProjects.length}
-          label="En retard"
-          sub={overdueProjects.length > 0 ? 'deadlines dépassées' : 'Tous dans les délais'}
-          highlight={overdueProjects.length > 0}
+        <StatCard value={activeProjects.length} label="Projets actifs"
+          sub={`sur ${projects.length} au total`} color="var(--primary)" />
+        <StatCard value={overdueProjects.length} label="En retard"
+          sub={overdueProjects.length > 0 ? 'deadlines dépassées' : '✓ Tous dans les délais'}
           color={overdueProjects.length > 0 ? 'var(--danger)' : 'var(--success)'}
-          invertHighlight
-        />
-        <StatCard
-          value={`${teamTotal.toFixed(1)}h`}
-          label="Charge équipe"
-          sub={`${active.name?.split(' ')[0]} + ${compare?.name?.split(' ')[0]} / semaine`}
-        />
-        <StatCard
-          value={`${teamRate}%`}
-          label="Taux de charge"
-          sub={`objectif 2×40h = 80h`}
-          highlight={teamRate > 100}
-        />
+          highlight={overdueProjects.length > 0} invertHighlight />
+        <StatCard value={`${totalA.toFixed(1)}h`} label="Mes heures / sem."
+          sub={totalA > WEEKLY_GOAL ? `🔥 +${(totalA - WEEKLY_GOAL).toFixed(1)}h` : `/ ${WEEKLY_GOAL}h`} />
+        <StatCard value={`${(totalA + totalB).toFixed(1)}h`} label="Équipe / sem."
+          sub={`${active.name?.split(' ')[0]} + ${compare?.name?.split(' ')[0]}`} />
       </div>
 
-      {/* PHASE DISTRIBUTION */}
-      <div className="card" style={{ marginBottom: '1rem' }}>
-        <div className="card-title">Santé du portefeuille — phases</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '.55rem' }}>
-          {phaseDist.map(ph => (
-            <div key={ph.id} style={{ display: 'flex', alignItems: 'center', gap: '.65rem' }}>
-              <div style={{ width: 80, fontSize: '.72rem', fontWeight: 700, color: ph.color, flexShrink: 0 }}>
-                {ph.icon} {ph.label}
-              </div>
-              <div style={{ flex: 1, background: 'var(--border)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%', borderRadius: 4,
-                  width: `${(ph.count / maxPhaseCount) * 100}%`,
-                  background: ph.color,
-                  transition: 'width .5s ease',
-                  minWidth: ph.count > 0 ? 4 : 0,
-                }} />
-              </div>
-              <div style={{ width: 20, textAlign: 'right', fontSize: '.75rem', fontWeight: 700, color: ph.count > 0 ? 'var(--text)' : 'var(--text-muted)' }}>
-                {ph.count}
-              </div>
-            </div>
-          ))}
+      {/* Needs attention */}
+      {needsAction.length > 0 && (
+        <div className="card" style={{ marginBottom: '1rem', border: '1.5px solid var(--danger)' }}>
+          <div className="card-title" style={{ color: 'var(--danger)' }}>
+            🚨 Projets nécessitant une action ({needsAction.length})
+          </div>
+          {needsAction.slice(0, 4).map(p => {
+            const daysLeft = p.date ? differenceInDays(parseISO(p.date), now) : null
+            const overdue = daysLeft !== null && daysLeft < 0
+            const phaseId = parsePhase(p.description) || 'Planning'
+            const phase = ISO_PHASES.find(ph => ph.id === phaseId)
+            return (
+              <Link key={p.id} to={`/projects/${p.id}`}
+                style={{ textDecoration: 'none', display: 'flex', alignItems: 'center',
+                  justifyContent: 'space-between', padding: '.5rem 0',
+                  borderBottom: '1px solid var(--border)' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: '.85rem', color: 'var(--text)',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {p.name}
+                  </div>
+                  {phase && (
+                    <span style={{ fontSize: '.62rem', padding: '1px 5px', borderRadius: 3,
+                      background: `${phase.color}18`, color: phase.color, fontWeight: 700 }}>
+                      {phase.icon} {phase.label}
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: '.75rem', fontWeight: 800, flexShrink: 0, marginLeft: '.75rem',
+                  color: overdue ? 'var(--danger)' : '#b45309' }}>
+                  {overdue ? `⚠ ${Math.abs(daysLeft)}j retard` : `⚡ Dans ${daysLeft}j`}
+                </span>
+              </Link>
+            )
+          })}
         </div>
-        {projects.length === 0 && (
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '.85rem', padding: '.75rem 0' }}>
-            Aucun projet chargé
-          </div>
-        )}
+      )}
+
+      {/* Phase distribution */}
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card-title">Distribution par phase</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
+          {ISO_PHASES.map(ph => {
+            const count = projects.filter(p => (parsePhase(p.description) || 'Planning') === ph.id).length
+            return (
+              <div key={ph.id} style={{ display: 'flex', alignItems: 'center', gap: '.65rem' }}>
+                <div style={{ width: 76, fontSize: '.72rem', fontWeight: 700, color: ph.color, flexShrink: 0 }}>
+                  {ph.icon} {ph.label}
+                </div>
+                <div style={{ flex: 1, background: 'var(--border)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 4, background: ph.color,
+                    width: `${(count / maxPhaseCount) * 100}%`,
+                    transition: 'width .5s ease', minWidth: count > 0 ? 4 : 0,
+                  }} />
+                </div>
+                <span style={{ width: 20, textAlign: 'right', fontSize: '.75rem', fontWeight: 700,
+                  color: count > 0 ? 'var(--text)' : 'var(--text-muted)' }}>{count}</span>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
-      {/* URGENT / UPCOMING DEADLINES */}
+      {/* Upcoming deadlines */}
       <div className="card" style={{ marginBottom: '1rem' }}>
-        <div className="card-title">Échéances imminentes (14 jours)</div>
-        {urgentProjects.length === 0 ? (
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '.85rem', padding: '.5rem 0' }}>
-            Aucune deadline dans les 14 prochains jours
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
-            {urgentProjects.map(p => {
-              const phaseId = parsePhase(p.description) || 'Initiating'
-              const phase = ISO_PHASES.find(ph => ph.id === phaseId)
+        <div className="card-title">Échéances — 14 prochains jours</div>
+        {urgentProjects.length === 0
+          ? <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '.85rem', padding: '.5rem 0' }}>
+              Aucune deadline dans les 14 jours
+            </div>
+          : urgentProjects.map(p => {
+              const phase = ISO_PHASES.find(ph => ph.id === (parsePhase(p.description) || 'Planning'))
               const overdue = p.daysLeft < 0
               const critical = p.daysLeft >= 0 && p.daysLeft <= 3
-
               return (
                 <Link key={p.id} to={`/projects/${p.id}`}
                   style={{ textDecoration: 'none', display: 'flex', alignItems: 'center',
-                    justifyContent: 'space-between', gap: '.75rem',
-                    padding: '.6rem .75rem', borderRadius: 8,
+                    justifyContent: 'space-between', gap: '.75rem', padding: '.55rem .65rem',
+                    borderRadius: 8, marginBottom: '.3rem',
                     background: overdue ? 'var(--danger-light)' : critical ? 'var(--warning-light)' : 'var(--bg)',
-                    border: `1px solid ${overdue ? 'var(--danger)' : critical ? 'var(--warning)' : 'var(--border)'}22`,
+                    border: `1px solid ${overdue ? '#fca5a5' : critical ? '#fcd34d' : 'transparent'}`,
                   }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: '.85rem', color: 'var(--text)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontWeight: 600, fontSize: '.85rem', overflow: 'hidden',
+                      textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text)' }}>
                       {p.name}
                     </div>
-                    {phase && (
-                      <span style={{ fontSize: '.65rem', padding: '1px 5px', borderRadius: 3, fontWeight: 700,
-                        background: `${phase.color}18`, color: phase.color }}>
-                        {phase.icon} {phase.label}
-                      </span>
-                    )}
+                    {phase && <span style={{ fontSize: '.62rem', color: phase.color, fontWeight: 700 }}>
+                      {phase.icon} {phase.label}
+                    </span>}
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ fontSize: '.75rem', fontWeight: 800,
                       color: overdue ? 'var(--danger)' : critical ? '#b45309' : 'var(--text-muted)' }}>
-                      {overdue
-                        ? `⚠ ${Math.abs(p.daysLeft)}j de retard`
-                        : p.daysLeft === 0
-                          ? "Aujourd'hui !"
-                          : `Dans ${p.daysLeft}j`
-                      }
+                      {overdue ? `⚠ ${Math.abs(p.daysLeft)}j retard` : p.daysLeft === 0 ? "Aujourd'hui !" : `Dans ${p.daysLeft}j`}
                     </div>
                     <div style={{ fontSize: '.68rem', color: 'var(--text-muted)' }}>
                       {format(parseISO(p.date), 'd MMM', { locale: fr })}
@@ -359,38 +336,260 @@ function PortfolioTab({ projects, weekEntries, compareEntries, active, compare }
                   </div>
                 </Link>
               )
-            })}
-          </div>
-        )}
+            })
+        }
       </div>
 
-      {/* TEAM COMPARISON */}
-      <div className="card" style={{ marginBottom: '1rem' }}>
-        <div className="card-title">Charge hebdomadaire équipe</div>
-        <WeeklyStats
-          entries={weekEntries}
-          compareEntries={compareEntries}
-          memberName={active.name}
-          compareName={compare?.name}
-        />
-      </div>
-
-      {/* PROJECT BREAKDOWN */}
-      <div className="card" style={{ marginBottom: '1rem' }}>
-        <div className="card-title">Répartition par projet — équipe (7j)</div>
-        <ProjectPieChart entries={[...weekEntries, ...compareEntries]} />
+      {/* Team comparison */}
+      <div className="card">
+        <div className="card-title">Charge hebdomadaire</div>
+        <WeeklyStats entries={weekEntries} compareEntries={compareEntries}
+          memberName={active.name} compareName={compare?.name} />
       </div>
     </main>
   )
 }
 
-/* ─── SHARED STAT CARD ───────────────────────────────────────── */
+/* ─── TAB : DIRECTION ───────────────────────────────────────────── */
+function DirectionTab({ projects, weekEntries, compareEntries, active, compare }) {
+  const now = new Date()
+  const totalA = weekEntries.reduce((s, e) => s + (e.unit_amount || 0), 0)
+  const totalB = compareEntries.reduce((s, e) => s + (e.unit_amount || 0), 0)
+  const teamHours = totalA + totalB
+  const teamUtil  = Math.round((teamHours / (2 * WEEKLY_GOAL)) * 100)
+
+  const projectsWithDate = projects.filter(p => p.date)
+  const overdueCount = projectsWithDate.filter(p => differenceInDays(parseISO(p.date), now) < 0).length
+  const atRiskCount  = projectsWithDate.filter(p => {
+    const d = differenceInDays(parseISO(p.date), now)
+    return d >= 0 && d <= 7
+  }).length
+  const onTrackCount = projectsWithDate.filter(p => differenceInDays(parseISO(p.date), now) > 7).length
+  const healthPct = projectsWithDate.length > 0
+    ? Math.round((onTrackCount / projectsWithDate.length) * 100)
+    : 100
+  const healthColor = healthPct >= 80 ? 'var(--success)' : healthPct >= 50 ? '#b45309' : 'var(--danger)'
+
+  // Phase distribution for donut
+  const phaseData = ISO_PHASES.map(ph => ({
+    name: `${ph.icon} ${ph.label}`,
+    value: projects.filter(p => (parsePhase(p.description) || 'Planning') === ph.id).length,
+    color: ph.color,
+  })).filter(d => d.value > 0)
+
+  // Top projects by team activity
+  const topProjects = buildTopProjects(weekEntries, compareEntries)
+
+  // Last 30 days delivery pipeline
+  const deliveryPipeline = projects
+    .filter(p => p.date)
+    .map(p => ({ ...p, daysLeft: differenceInDays(parseISO(p.date), now) }))
+    .filter(p => p.daysLeft >= -7 && p.daysLeft <= 30)
+    .sort((a, b) => a.daysLeft - b.daysLeft)
+
+  return (
+    <main className="page">
+
+      {/* Health Score Hero */}
+      <div className="card" style={{ marginBottom: '1rem',
+        background: `linear-gradient(135deg, var(--primary-dark), var(--primary))`,
+        color: '#fff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '.72rem', fontWeight: 700, opacity: .8,
+              textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '.3rem' }}>
+              Santé du portefeuille
+            </div>
+            <div style={{ fontSize: '3rem', fontWeight: 900, lineHeight: 1,
+              color: healthPct >= 80 ? '#5acaad' : healthPct >= 50 ? '#f5c36e' : '#ef532b' }}>
+              {healthPct}%
+            </div>
+            <div style={{ fontSize: '.78rem', opacity: .8, marginTop: '.25rem' }}>
+              {onTrackCount} dans les délais · {atRiskCount} à risque · {overdueCount} en retard
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '.2rem' }}>
+              {healthPct >= 80 ? '🟢' : healthPct >= 50 ? '🟡' : '🔴'}
+            </div>
+            <div style={{ fontSize: '.72rem', opacity: .75 }}>{projects.length} projets total</div>
+          </div>
+        </div>
+      </div>
+
+      {/* KPI Row direction */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '.75rem', marginBottom: '1rem' }}>
+        <StatCard value={`${teamUtil}%`} label="Utilisation équipe"
+          sub={`${teamHours.toFixed(1)}h / ${2 * WEEKLY_GOAL}h`}
+          color={teamUtil > 100 ? 'var(--overtime)' : teamUtil >= 70 ? 'var(--success)' : '#b45309'}
+          highlight={teamUtil > 100} />
+        <StatCard value={projects.filter(p => parsePhase(p.description) !== 'Closing').length}
+          label="Projets actifs"
+          sub={`${projects.filter(p => parsePhase(p.description) === 'Closing').length} en clôture`}
+          color="var(--primary)" />
+        <StatCard value={`${totalA.toFixed(1)}h`} label={active.name?.split(' ')[0] || 'Membre A'}
+          sub={totalA >= WEEKLY_GOAL ? '🔥 Objectif atteint' : `/ ${WEEKLY_GOAL}h`}
+          color={totalA >= WEEKLY_GOAL ? 'var(--success)' : 'var(--text)'} />
+        <StatCard value={`${totalB.toFixed(1)}h`} label={compare?.name?.split(' ')[0] || 'Membre B'}
+          sub={totalB >= WEEKLY_GOAL ? '🔥 Objectif atteint' : `/ ${WEEKLY_GOAL}h`}
+          color={totalB >= WEEKLY_GOAL ? 'var(--success)' : 'var(--text)'} />
+      </div>
+
+      {/* Phase donut + top projects side by side on desktop */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+        <div className="card">
+          <div className="card-title">Portefeuille par phase</div>
+          {phaseData.length > 0
+            ? <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={phaseData} dataKey="value" cx="45%" cy="50%"
+                    outerRadius={62} innerRadius={30} paddingAngle={2}>
+                    {phaseData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(v, name) => [`${v} projet${v > 1 ? 's' : ''}`, name]}
+                    contentStyle={{ borderRadius: 8, fontSize: '.75rem', border: 'none',
+                      boxShadow: '0 4px 16px rgba(0,0,0,.15)' }} />
+                  <Legend iconType="circle" iconSize={7}
+                    formatter={v => <span style={{ fontSize: '.68rem', color: 'var(--text-muted)' }}>{v}</span>} />
+                </PieChart>
+              </ResponsiveContainer>
+            : <div style={{ color: 'var(--text-muted)', fontSize: '.85rem', textAlign: 'center', padding: '1rem' }}>
+                Aucun projet
+              </div>
+          }
+        </div>
+
+        <div className="card">
+          <div className="card-title">Top projets (semaine)</div>
+          {topProjects.length > 0
+            ? <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={topProjects} layout="vertical"
+                  margin={{ left: 0, right: 20, top: 4, bottom: 4 }}>
+                  <XAxis type="number" tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
+                    axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="name" width={90}
+                    tick={{ fontSize: 10, fill: 'var(--text)' }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)"
+                    vertical={true} horizontal={false} />
+                  <Tooltip formatter={v => [`${v}h`, '']}
+                    contentStyle={{ borderRadius: 8, fontSize: '.78rem', border: 'none',
+                      boxShadow: '0 4px 16px rgba(0,0,0,.15)' }} />
+                  <Bar dataKey="hours" fill="var(--accent)" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            : <div style={{ color: 'var(--text-muted)', fontSize: '.85rem', textAlign: 'center', padding: '1rem' }}>
+                Aucune activité cette semaine
+              </div>
+          }
+        </div>
+      </div>
+
+      {/* Delivery pipeline */}
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card-title">Pipeline de livraisons — 30 jours</div>
+        {deliveryPipeline.length === 0
+          ? <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '.85rem', padding: '.5rem 0' }}>
+              Aucune livraison prévue dans les 30 jours
+            </div>
+          : <div>
+              {deliveryPipeline.map(p => {
+                const phase = ISO_PHASES.find(ph => ph.id === (parsePhase(p.description) || 'Planning'))
+                const overdue = p.daysLeft < 0
+                const critical = p.daysLeft >= 0 && p.daysLeft <= 3
+                const statusColor = overdue ? 'var(--danger)' : critical ? '#b45309' : 'var(--success)'
+                const statusLabel = overdue
+                  ? `${Math.abs(p.daysLeft)}j retard`
+                  : p.daysLeft === 0 ? 'Aujourd\'hui'
+                  : `J-${p.daysLeft}`
+
+                return (
+                  <Link key={p.id} to={`/projects/${p.id}`}
+                    style={{ textDecoration: 'none', display: 'flex', alignItems: 'center',
+                      gap: '.75rem', padding: '.5rem 0', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ width: 52, textAlign: 'center', flexShrink: 0 }}>
+                      <div style={{ fontSize: '.7rem', fontWeight: 800, color: statusColor }}>
+                        {statusLabel}
+                      </div>
+                      <div style={{ fontSize: '.62rem', color: 'var(--text-muted)' }}>
+                        {format(parseISO(p.date), 'd MMM', { locale: fr })}
+                      </div>
+                    </div>
+                    <div style={{ width: 3, height: 32, borderRadius: 2, flexShrink: 0,
+                      background: statusColor }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: '.85rem', overflow: 'hidden',
+                        textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text)' }}>
+                        {p.name}
+                      </div>
+                      {phase && <span style={{ fontSize: '.62rem', color: phase.color, fontWeight: 700 }}>
+                        {phase.icon} {phase.label}
+                      </span>}
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+        }
+      </div>
+
+      {/* Team utilization bars */}
+      <div className="card">
+        <div className="card-title">Performance équipe — semaine en cours</div>
+        {[
+          { name: active.name, hours: weekEntries.reduce((s, e) => s + (e.unit_amount || 0), 0) },
+          { name: compare?.name, hours: compareEntries.reduce((s, e) => s + (e.unit_amount || 0), 0) },
+        ].map((m, i) => {
+          if (!m.name) return null
+          const pct = Math.min((m.hours / WEEKLY_GOAL) * 100, 150)
+          const over = m.hours > WEEKLY_GOAL
+          return (
+            <div key={i} style={{ marginBottom: i === 0 ? '1rem' : 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '.3rem' }}>
+                <span style={{ fontSize: '.82rem', fontWeight: 600 }}>{m.name}</span>
+                <span style={{ fontSize: '.82rem', fontWeight: 800,
+                  color: over ? 'var(--overtime)' : m.hours >= WEEKLY_GOAL * 0.75 ? 'var(--success)' : 'var(--text-muted)' }}>
+                  {m.hours.toFixed(1)}h / {WEEKLY_GOAL}h
+                </span>
+              </div>
+              <div className="progress-bar" style={{ height: 10 }}>
+                <div className="progress-bar-fill" style={{
+                  width: `${Math.min(pct, 100)}%`,
+                  background: over ? 'linear-gradient(90deg, var(--primary) 60%, var(--overtime) 100%)' : undefined,
+                }} />
+              </div>
+              <div style={{ fontSize: '.68rem', color: 'var(--text-muted)', marginTop: '.2rem' }}>
+                {Math.round(Math.min(pct, 100))}% de l'objectif
+                {over && ` · 🔥 +${(m.hours - WEEKLY_GOAL).toFixed(1)}h overtime`}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </main>
+  )
+}
+
+/* ─── Helpers ────────────────────────────────────────────────────── */
+function buildTopProjects(weekEntries, compareEntries) {
+  const map = {}
+  ;[...weekEntries, ...compareEntries].forEach(e => {
+    const id = Array.isArray(e.project_id) ? e.project_id[0] : null
+    if (!id) return
+    const name = Array.isArray(e.project_id) ? e.project_id[1] : '?'
+    const short = name.length > 18 ? name.slice(0, 16) + '…' : name
+    if (!map[id]) map[id] = { id, name: short, hours: 0 }
+    map[id].hours += e.unit_amount || 0
+  })
+  return Object.values(map)
+    .sort((a, b) => b.hours - a.hours)
+    .slice(0, 5)
+    .map(d => ({ ...d, hours: parseFloat(d.hours.toFixed(1)) }))
+}
 
 function StatCard({ value, label, sub, accent, highlight, color, invertHighlight }) {
   const borderStyle = highlight && !accent
     ? { borderLeft: `3px solid ${invertHighlight ? 'var(--danger)' : 'var(--overtime)'}` }
     : undefined
-
   return (
     <div className={`stat-card${accent ? ' accent' : ''}`} style={borderStyle}>
       <div className="stat-card-value" style={color && !accent ? { color } : undefined}>{value}</div>

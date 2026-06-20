@@ -140,7 +140,7 @@ export default function Focus() {
                   onClick={() => {
                     if (isThisRunning) return
                     if (isRunning) { toast.error("Arrêtez le timer en cours d'abord"); return }
-                    start({ taskId: task.id, projectId, taskName: task.name, projectName })
+                    start({ taskId: task.id, projectId, taskName: task.name, projectName, employeeId: active.id })
                   }}
                   style={{
                     flex: 1, background: isThisRunning ? '#dcfce7' : 'var(--primary)',
