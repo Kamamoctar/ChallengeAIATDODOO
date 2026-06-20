@@ -9,7 +9,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 import requests
 
 GATEWAY_URL = "https://odoo-gateway-kappa.vercel.app"
-API_KEY = os.environ.get("GATEWAY_API_KEY", "concours_vm0MF_Ujrf9y3k-OSbu_MhUihpr0Lk5c")
+API_KEY = os.environ.get("GATEWAY_API_KEY")
+if not API_KEY:
+    raise SystemExit("Erreur : définissez la variable GATEWAY_API_KEY dans votre .env ou environnement")
 
 
 def search(name: str):
