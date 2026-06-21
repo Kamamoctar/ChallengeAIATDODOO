@@ -11,8 +11,8 @@ import Focus from './pages/Focus'
 import Kanban from './pages/Kanban'
 import FloatingTimer from './components/FloatingTimer'
 import SearchModal from './components/SearchModal'
+import ThemeSwitch from './components/ThemeSwitch'
 import { useTeam } from './context/TeamContext'
-import { useTheme } from './context/ThemeContext'
 import { api } from './api/odoo'
 import { queueGet, queueRemove } from './utils/offlineQueue'
 
@@ -26,7 +26,6 @@ const NAV = [
 
 export default function App() {
   const { active, members, setActive } = useTeam()
-  const { isDark, toggle: toggleTheme } = useTheme()
   const qc = useQueryClient()
   const [searchOpen, setSearchOpen] = useState(false)
   const [pendingSync, setPendingSync] = useState(queueGet().length)
@@ -140,10 +139,7 @@ export default function App() {
             </div>
           )}
 
-          <button onClick={toggleTheme} className="theme-toggle" style={{ marginTop: '.75rem', width: '100%' }}>
-            {isDark ? '☀️' : '🌙'}
-            <span>{isDark ? 'Mode clair' : 'Mode sombre'}</span>
-          </button>
+          <ThemeSwitch />
         </div>
       </aside>
 
@@ -172,10 +168,8 @@ export default function App() {
         ))}
       </nav>
 
-      {/* ── THEME TOGGLE (mobile) ──────────────────────── */}
-      <button onClick={toggleTheme} className="theme-toggle-mobile" title={isDark ? 'Mode clair' : 'Mode sombre'}>
-        {isDark ? '☀️' : '🌙'}
-      </button>
+      {/* ── THEME SWITCH (mobile) ──────────────────────── */}
+      <ThemeSwitch compact />
 
       {/* ── SEARCH MODAL ───────────────────────────────── */}
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
