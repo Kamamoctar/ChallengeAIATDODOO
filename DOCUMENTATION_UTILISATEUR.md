@@ -1,7 +1,7 @@
 # Documentation Utilisateur
 # ATD — Application de Gestion de Projet
 
-**Version :** 1.0  
+**Version :** 1.1  
 **Date :** Juin 2026  
 **Équipe :** ATD  
 **Contact :** kamamoctar@gmail.com
@@ -23,7 +23,8 @@
 11. [Recherche globale](#11-recherche-globale)
 12. [Bot Telegram](#12-bot-telegram)
 13. [Mode hors-ligne](#13-mode-hors-ligne)
-14. [Guide administrateur](#14-guide-administrateur)
+14. [Mode sombre](#14-mode-sombre)
+15. [Guide administrateur](#15-guide-administrateur)
 
 ---
 
@@ -488,7 +489,42 @@ Dès que la connexion réseau est rétablie :
 
 ---
 
-## 14. Guide administrateur
+## 14. Mode sombre
+
+### 14.1 Activation
+
+L'application propose un **mode sombre** qui adapte toute l'interface à une palette de couleurs ATD nocturne, confortable en environnement peu éclairé.
+
+Pour basculer entre le mode clair et le mode sombre :
+
+- **Sur bureau** : cliquez sur le bouton **🌙 Mode sombre** / **☀️ Mode clair** situé en bas de la barre de navigation latérale.
+- **Sur mobile** : appuyez sur le bouton rond **🌙 / ☀️** qui apparaît en bas à gauche de l'écran (au-dessus de la navigation).
+
+### 14.2 Persistance et détection automatique
+
+| Comportement | Détail |
+|---|---|
+| **Mémorisation** | Votre préférence est sauvegardée dans le navigateur ; elle persiste entre les sessions. |
+| **Détection système** | Au premier lancement, l'application lit la préférence système (`prefers-color-scheme`). Si votre OS est en mode sombre, l'application démarre automatiquement en mode sombre. |
+| **Par appareil** | La préférence est locale à chaque appareil/navigateur et ne se synchronise pas. |
+
+### 14.3 Éléments adaptés
+
+Tous les composants utilisent la palette ATD nuit :
+
+| Élément | Mode clair | Mode sombre |
+|---|---|---|
+| Fond général | `#f2f7f9` (bleu très clair) | `#0d1b26` (bleu très sombre) |
+| Cartes / surfaces | `#ffffff` | `#152130` |
+| Texte principal | `#1a2e38` | `#d8eaf3` |
+| Bordures | `#d0e4ea` | `#1e3347` |
+| Bleu ATD (boutons) | `#0a4b8b` | `#4a9fd4` (plus clair pour le contraste) |
+
+> Les graphiques recharts, les badges de statut, les tableaux ISO et les formulaires s'adaptent tous automatiquement.
+
+---
+
+## 15. Guide administrateur
 
 Cette section s'adresse à la personne responsable du déploiement et de la configuration de l'application.
 

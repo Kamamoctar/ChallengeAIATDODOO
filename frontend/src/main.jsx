@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast'
 import App from './App'
 import { TeamProvider } from './context/TeamContext'
 import { TimerProvider } from './context/TimerContext'
+import { ThemeProvider } from './context/ThemeContext'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -16,12 +17,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <TeamProvider>
-          <TimerProvider>
-            <App />
-            <Toaster position="top-center" />
-          </TimerProvider>
-        </TeamProvider>
+        <ThemeProvider>
+          <TeamProvider>
+            <TimerProvider>
+              <App />
+              <Toaster position="top-center" />
+            </TimerProvider>
+          </TeamProvider>
+        </ThemeProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>
