@@ -87,8 +87,9 @@ export default function App() {
 
       {/* ── SIDEBAR (desktop only) ──────────────────── */}
       <aside className="sidebar">
-        <div className="sidebar-logo">
-          <img src="/LOGO_ATD.png" alt="ATD" style={{ height: 38, objectFit: 'contain', maxWidth: '100%' }} />
+        <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '.5rem' }}>
+          <img src="/LOGO_ATD.png" alt="ATD" style={{ height: 38, objectFit: 'contain', flex: 1, minWidth: 0 }} />
+          <ThemeSwitch iconOnly />
         </div>
 
         <button onClick={() => setSearchOpen(true)}
@@ -139,7 +140,6 @@ export default function App() {
             </div>
           )}
 
-          <ThemeSwitch />
         </div>
       </aside>
 
@@ -168,8 +168,10 @@ export default function App() {
         ))}
       </nav>
 
-      {/* ── THEME SWITCH (mobile) ──────────────────────── */}
-      <ThemeSwitch compact />
+      {/* ── THEME BAR (mobile only, above bottom-nav) ─── */}
+      <div className="theme-bar-mobile">
+        <ThemeSwitch />
+      </div>
 
       {/* ── SEARCH MODAL ───────────────────────────────── */}
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />

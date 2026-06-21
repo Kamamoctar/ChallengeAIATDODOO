@@ -1,23 +1,34 @@
 import { useTheme } from '../context/ThemeContext'
 
-export default function ThemeSwitch({ compact = false }) {
+export default function ThemeSwitch({ iconOnly = false }) {
   const { isDark, toggle } = useTheme()
 
-  if (compact) {
+  /* Variante icône seule — en-tête de la sidebar */
+  if (iconOnly) {
     return (
       <button
         onClick={toggle}
-        className={`theme-switch-pill${isDark ? ' theme-switch-pill--dark' : ''}`}
         title={isDark ? 'Passer en mode clair' : 'Passer en mode sombre'}
-        aria-label="Changer le thème"
+        style={{
+          width: 34, height: 34,
+          borderRadius: 8,
+          border: '1.5px solid var(--border)',
+          background: 'var(--bg)',
+          cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '1rem',
+          flexShrink: 0,
+          transition: 'border-color .15s, background .15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+        onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
       >
-        <span className="theme-switch-pill-icon">☀️</span>
-        <span className={`theme-switch-pill-thumb${isDark ? ' theme-switch-pill-thumb--dark' : ''}`} />
-        <span className="theme-switch-pill-icon">🌙</span>
+        {isDark ? '☀️' : '🌙'}
       </button>
     )
   }
 
+  /* Variante complète — barre mobile + éventuellement sidebar bas */
   return (
     <div
       onClick={toggle}
@@ -36,7 +47,7 @@ export default function ThemeSwitch({ compact = false }) {
       </div>
       <span className="theme-switch-label">🌙</span>
       <span className="theme-switch-text">
-        {isDark ? 'Sombre' : 'Clair'}
+        {isDark ? 'Mode sombre' : 'Mode clair'}
       </span>
     </div>
   )
