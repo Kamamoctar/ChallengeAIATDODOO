@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../api/odoo'
@@ -49,6 +49,12 @@ export default function Kanban() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-tasks', userId] }),
     onError: (e) => toast.error(e.message),
   })
+
+  const doneStageId = useMemo(() => {
+    const s = stages.filter(s => /done|terminé|fermé|clôt/i.test(s.name))
+    if (!s.length) return null
+    return s.reduce((best, cur) => cur.sequence > best.sequence ? cur : best).id
+  }, [stages])
 
   // Build column definitions from real stages or fallback
   const columns = stages.length > 0
@@ -130,7 +136,9 @@ export default function Kanban() {
                   {colTasks.map(task => (
                     <KanbanCard key={task.id} task={task} columns={columns}
                       stages={stages}
-                      onMove={(stageId) => moveTask.mutate({ id: task.id, stage_id: stageId })} />
+                      onMove={(stageId) => moveTask.mutate({ id: task.id, stage_id: stageId })}
+                      onComplete={() => doneStageId && moveTask.mutate({ id: task.id, stage_id: doneStageId })}
+                      alreadyDone={doneStageId != null && task.stage_id?.[0] === doneStageId} />
                   ))}
                   {colTasks.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '1.5rem .5rem',
@@ -149,8 +157,9 @@ export default function Kanban() {
   )
 }
 
-function KanbanCard({ task, columns, stages, onMove }) {
+function KanbanCard({ task, columns, stages, onMove, onComplete, alreadyDone }) {
   const [showMove, setShowMove] = useState(false)
+  const [done, setDone] = useState(false)
   const projectName = Array.isArray(task.project_id) ? task.project_id[1] : null
   const projectId = Array.isArray(task.project_id) ? task.project_id[0] : null
   const isStarred = task.priority === '1'
@@ -182,11 +191,17 @@ function KanbanCard({ task, columns, stages, onMove }) {
       )}
 
       {/* Move to stage */}
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', display: 'flex', gap: '.35rem' }}>
+        <button
+          onClick={() => { setDone(true); onComplete?.() }}
+          disabled={done || alreadyDone || !onComplete}
+          className={`task-done-btn task-done-btn--sm${(done || alreadyDone) ? ' task-done-btn--active' : ''}`}
+          title="Marquer comme terminée"
+        >✓</button>
         <button onClick={() => setShowMove(v => !v)}
           style={{ fontSize: '.68rem', color: 'var(--text-muted)', background: 'var(--bg)',
             border: '1px solid var(--border)', borderRadius: 6, padding: '2px 7px',
-            cursor: 'pointer', width: '100%' }}>
+            cursor: 'pointer', flex: 1 }}>
           Déplacer ▾
         </button>
         {showMove && (

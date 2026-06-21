@@ -285,6 +285,34 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
 .stat-card.accent .stat-card-label,
 .stat-card.accent .stat-card-sub { color: rgba(255,255,255,.9); }
 
+/* ─── TASK DONE BUTTON ─────────────────────────────────── */
+
+.task-done-btn {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: .85rem; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: border-color .15s, background .15s, color .15s, transform .15s;
+  cursor: pointer;
+}
+.task-done-btn:hover:not(:disabled) {
+  border-color: var(--success); color: var(--success); transform: scale(1.1);
+}
+.task-done-btn--active {
+  border-color: var(--success) !important; background: var(--success) !important;
+  color: #fff !important; cursor: default;
+  animation: done-pop .25s ease forwards;
+}
+.task-done-btn:disabled:not(.task-done-btn--active) { opacity: .4; cursor: not-allowed; }
+.task-done-btn--sm { width: 22px; height: 22px; font-size: .72rem; }
+@keyframes done-pop {
+  0% { transform: scale(1); } 50% { transform: scale(1.25); } 100% { transform: scale(1.05); }
+}
+
 /* ─── BUTTONS ──────────────────────────────────────────── */
 
 .btn {

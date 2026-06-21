@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect, useMemo } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { api } from '../api/odoo'
@@ -28,11 +28,41 @@ export default function Focus() {
     ? parseInt(import.meta.env.VITE_EMPLOYEE_A_USER_ID || '0')
     : parseInt(import.meta.env.VITE_EMPLOYEE_B_USER_ID || '0')
 
+  const qc = useQueryClient()
+
   const { data: myTasks = [] } = useQuery({
     queryKey: ['my-tasks', userId],
     queryFn: () => api.getMyTasks(userId),
     enabled: userId > 0,
     staleTime: 120_000,
+  })
+
+  const { data: stages = [] } = useQuery({
+    queryKey: ['all-stages'],
+    queryFn: api.getAllStages,
+    staleTime: 300_000,
+  })
+
+  const doneStageId = useMemo(() => {
+    const s = stages.filter(s => /done|terminé|fermé|clôt/i.test(s.name))
+    if (!s.length) return null
+    return s.reduce((best, cur) => cur.sequence > best.sequence ? cur : best).id
+  }, [stages])
+
+  const [completedIds, setCompletedIds] = useState(() => new Set())
+
+  const completeTask = useMutation({
+    mutationFn: (taskId) => api.updateTask(taskId, { stage_id: doneStageId }),
+    onMutate: (taskId) => setCompletedIds(prev => new Set([...prev, taskId])),
+    onSuccess: (_data, taskId) => {
+      removeFromFocus(taskId)
+      qc.invalidateQueries({ queryKey: ['my-tasks', userId] })
+      toast.success('Tâche terminée ✓')
+    },
+    onError: (_err, taskId) => {
+      setCompletedIds(prev => { const n = new Set(prev); n.delete(taskId); return n })
+      toast.error('Erreur — tâche non marquée')
+    },
   })
 
   useEffect(() => { saveFocus(focus) }, [focus])
@@ -107,7 +137,7 @@ export default function Focus() {
           </div>
         )}
 
-        {focus.map((task, i) => {
+        {focus.filter(task => !completedIds.has(task.id)).map((task, i) => {
           const isThisRunning = runningTaskId === task.id
           const projectId = Array.isArray(task.project_id) ? task.project_id[0] : task.project_id
           const projectName = Array.isArray(task.project_id) ? task.project_id[1] : 'Sans projet'
@@ -136,6 +166,12 @@ export default function Focus() {
               </div>
 
               <div style={{ display: 'flex', gap: '.4rem', marginTop: '.75rem' }}>
+                <button
+                  onClick={() => doneStageId && completeTask.mutate(task.id)}
+                  disabled={!doneStageId || completedIds.has(task.id)}
+                  className={`task-done-btn${completedIds.has(task.id) ? ' task-done-btn--active' : ''}`}
+                  title="Marquer comme terminée"
+                >✓</button>
                 <button
                   onClick={() => {
                     if (isThisRunning) return
@@ -179,9 +215,15 @@ export default function Focus() {
           <>
             <div className="section-title" style={{ marginTop: '1.5rem' }}>Toutes mes tâches</div>
             <div className="card">
-              {myTasks.slice(0, 15).map(t => (
+              {myTasks.filter(t => !completedIds.has(t.id)).slice(0, 15).map(t => (
                 <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '.5rem',
                   padding: '.4rem 0', borderBottom: '1px solid var(--border)' }}>
+                  <button
+                    onClick={() => doneStageId && completeTask.mutate(t.id)}
+                    disabled={!doneStageId || completedIds.has(t.id)}
+                    className={`task-done-btn task-done-btn--sm${completedIds.has(t.id) ? ' task-done-btn--active' : ''}`}
+                    title="Marquer comme terminée"
+                  >✓</button>
                   <div style={{ flex: 1, fontSize: '.85rem' }}>
                     {t.priority === '1' ? '⭐ ' : ''}{t.name}
                     <div style={{ fontSize: '.7rem', color: 'var(--text-muted)' }}>
