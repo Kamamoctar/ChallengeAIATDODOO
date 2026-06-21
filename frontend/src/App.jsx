@@ -14,7 +14,7 @@ import SearchModal from './components/SearchModal'
 import ThemeSwitch from './components/ThemeSwitch'
 import { useTeam } from './context/TeamContext'
 import { api } from './api/odoo'
-import { queueGet, queueRemove } from './utils/offlineQueue'
+import { queueGet, queueRemove, queueClear } from './utils/offlineQueue'
 
 const NAV = [
   { to: '/',         icon: '🏠', label: "Aujourd'hui", end: true },
@@ -42,31 +42,39 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  /* Offline sync on reconnect */
-  useEffect(() => {
-    async function syncQueue() {
-      const queue = queueGet()
-      if (queue.length === 0) return
-      toast.loading(`Synchronisation de ${queue.length} entrée(s)…`, { id: 'sync' })
-      let synced = 0
-      for (let i = queue.length - 1; i >= 0; i--) {
-        try {
-          const { _queued_at, ...entry } = queue[i]
-          await api.createTimesheet(entry)
-          queueRemove(i)
-          synced++
-        } catch { /* skip */ }
-      }
-      const remaining = queueGet().length
-      setPendingSync(remaining)
-      toast.dismiss('sync')
-      if (synced > 0) {
-        toast.success(`✅ ${synced} entrée(s) synchronisée(s)`)
-        qc.invalidateQueries({ queryKey: ['timesheets-today'] })
-        qc.invalidateQueries({ queryKey: ['timesheets-2weeks'] })
-      }
+  /* Offline sync — accessible depuis les boutons et auto au reconnect */
+  async function syncQueue() {
+    const queue = queueGet()
+    if (queue.length === 0) return
+    toast.loading(`Synchronisation de ${queue.length} entrée(s)…`, { id: 'sync' })
+    let synced = 0
+    for (let i = queue.length - 1; i >= 0; i--) {
+      try {
+        const { _queued_at, ...entry } = queue[i]
+        await api.createTimesheet(entry)
+        queueRemove(i)
+        synced++
+      } catch { /* skip */ }
     }
+    const remaining = queueGet().length
+    setPendingSync(remaining)
+    toast.dismiss('sync')
+    if (synced > 0) {
+      toast.success(`✅ ${synced} entrée(s) synchronisée(s)`)
+      qc.invalidateQueries({ queryKey: ['timesheets-today'] })
+      qc.invalidateQueries({ queryKey: ['timesheets-2weeks'] })
+    } else if (remaining > 0) {
+      toast.error('Synchronisation impossible — vérifiez votre connexion')
+    }
+  }
 
+  function discardQueue() {
+    queueClear()
+    setPendingSync(0)
+    toast('File d\'attente vidée', { icon: '🗑️' })
+  }
+
+  useEffect(() => {
     function onOnline() { setPendingSync(queueGet().length); syncQueue() }
     function onStorageChange() { setPendingSync(queueGet().length) }
 
@@ -134,9 +142,25 @@ export default function App() {
           {pendingSync > 0 && (
             <div style={{ marginTop: '.75rem', padding: '.4rem .65rem', borderRadius: 6,
               background: 'var(--warning-light)', border: '1px solid var(--warning)',
-              fontSize: '.72rem', color: '#b45309', display: 'flex', alignItems: 'center', gap: '.4rem' }}>
-              <span>📶</span>
-              <span>{pendingSync} entrée(s) en attente de sync</span>
+              fontSize: '.72rem', color: '#b45309' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', marginBottom: '.35rem' }}>
+                <span>📶</span>
+                <span style={{ flex: 1 }}>{pendingSync} entrée(s) en attente de sync</span>
+              </div>
+              <div style={{ display: 'flex', gap: '.35rem' }}>
+                <button onClick={syncQueue}
+                  style={{ flex: 1, padding: '3px 0', borderRadius: 5, border: '1px solid var(--warning)',
+                    background: 'transparent', cursor: 'pointer', fontSize: '.7rem', fontWeight: 700,
+                    color: '#b45309' }}>
+                  🔄 Réessayer
+                </button>
+                <button onClick={discardQueue}
+                  style={{ flex: 1, padding: '3px 0', borderRadius: 5, border: '1px solid var(--warning)',
+                    background: 'transparent', cursor: 'pointer', fontSize: '.7rem', fontWeight: 700,
+                    color: '#b45309' }}>
+                  🗑 Supprimer
+                </button>
+              </div>
             </div>
           )}
 
