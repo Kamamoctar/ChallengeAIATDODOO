@@ -393,15 +393,30 @@ Le bot Telegram permet d'interagir avec l'application directement depuis Telegra
 
 ### 12.1 Commandes disponibles
 
-| Commande | Description | Requiert identification |
-|---|---|---|
-| `/aide` | Affiche la liste de toutes les commandes | Non |
-| `/projets` | Liste tous les projets actifs | Non |
-| `/portefeuille` | Projets avec phase ISO et deadline | Non |
-| `/retard` | Projets ayant dépassé leur deadline | Non |
-| `/aujourd'hui` | Mes entrées de temps du jour | Oui |
-| `/semaine` | Bilan hebdomadaire par projet | Oui |
-| `/log Xh Projet - description` | Créer une entrée de temps | Oui |
+#### Informations générales (sans compte lié)
+
+| Commande | Description |
+|---|---|
+| `/aide` | Liste toutes les commandes disponibles |
+| `/projets` | Liste tous les projets actifs avec leur ID |
+| `/portefeuille` | Projets groupés : en retard / dans les délais / sans deadline, avec phases ISO |
+| `/retard` | Projets ayant dépassé leur deadline avec nombre de jours de retard |
+| `/risques` | Risques de niveau Élevé ou Critique sur tous les projets |
+| `/projet <nom>` | Fiche rapide d'un projet : phase, deadline, nb tâches, activité 7 jours |
+| `/equipe` | Activité des deux membres de l'équipe aujourd'hui |
+
+#### Personnel (compte Telegram lié requis)
+
+| Commande | Description |
+|---|---|
+| `/aujourd'hui` | Mes entrées du jour avec leurs IDs Odoo |
+| `/semaine` | Bilan hebdomadaire par projet avec barre de progression |
+| `/mois` | Bilan mensuel avec répartition par projet et pourcentages |
+| `/taches` | Mes tâches ouvertes groupées par projet |
+| `/recap` | Récapitulatif journalier complet, formaté pour partage en réunion |
+| `/log Xh Projet - description` | Créer une entrée de temps |
+| `/modifier <id> <heures>` | Modifier la durée d'une entrée (ID obtenu via /aujourd'hui) |
+| `/supprimer <id>` | Supprimer une entrée de temps |
 
 ### 12.2 Saisie en langage naturel
 

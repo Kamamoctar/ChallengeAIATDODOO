@@ -30,12 +30,34 @@ class Settings(BaseSettings):
 
     @property
     def telegram_user_map(self) -> dict[int, int]:
+        """telegram_user_id → employee_id (hr.employee)"""
         m = {}
         if self.telegram_user_a and self.employee_a_id:
             m[self.telegram_user_a] = self.employee_a_id
         if self.telegram_user_b and self.employee_b_id:
             m[self.telegram_user_b] = self.employee_b_id
         return m
+
+    @property
+    def res_user_map(self) -> dict[int, int]:
+        """telegram_user_id → res.users id (for task filtering)"""
+        m = {}
+        if self.telegram_user_a and self.employee_a_user_id:
+            m[self.telegram_user_a] = self.employee_a_user_id
+        if self.telegram_user_b and self.employee_b_user_id:
+            m[self.telegram_user_b] = self.employee_b_user_id
+        return m
+
+    @property
+    def all_employee_ids(self) -> list[int]:
+        return [i for i in [self.employee_a_id, self.employee_b_id] if i]
+
+    def employee_name(self, employee_id: int) -> str:
+        if employee_id == self.employee_a_id:
+            return self.employee_a_name
+        if employee_id == self.employee_b_id:
+            return self.employee_b_name
+        return f"Employé {employee_id}"
 
 
 settings = Settings()
