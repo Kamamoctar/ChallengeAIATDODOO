@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { Home, Target, CalendarDays, ClipboardList, Folder, Calendar, Search, Plus, Wifi, RefreshCw, Trash2 } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import QuickEntry from './pages/QuickEntry'
 import History from './pages/History'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
 import Focus from './pages/Focus'
+import Week from './pages/Week'
 import Kanban from './pages/Kanban'
 import FloatingTimer from './components/FloatingTimer'
 import SearchModal from './components/SearchModal'
@@ -17,11 +19,12 @@ import { api } from './api/odoo'
 import { queueGet, queueRemove, queueClear } from './utils/offlineQueue'
 
 const NAV = [
-  { to: '/',         icon: '🏠', label: "Aujourd'hui", end: true },
-  { to: '/focus',    icon: '🎯', label: 'Focus' },
-  { to: '/kanban',   icon: '📋', label: 'Kanban' },
-  { to: '/projects', icon: '📁', label: 'Projets' },
-  { to: '/history',  icon: '📅', label: 'Historique' },
+  { to: '/',         icon: Home,         label: "Aujourd'hui", end: true },
+  { to: '/focus',    icon: Target,       label: 'Focus' },
+  { to: '/week',     icon: CalendarDays, label: 'Semaine' },
+  { to: '/kanban',   icon: ClipboardList, label: 'Kanban' },
+  { to: '/projects', icon: Folder,       label: 'Projets' },
+  { to: '/history',  icon: Calendar,     label: 'Historique' },
 ]
 
 export default function App() {
@@ -60,7 +63,7 @@ export default function App() {
     setPendingSync(remaining)
     toast.dismiss('sync')
     if (synced > 0) {
-      toast.success(`✅ ${synced} entrée(s) synchronisée(s)`)
+      toast.success(`${synced} entrée(s) synchronisée(s)`)
       qc.invalidateQueries({ queryKey: ['timesheets-today'] })
       qc.invalidateQueries({ queryKey: ['timesheets-2weeks'] })
     } else if (remaining > 0) {
@@ -71,7 +74,7 @@ export default function App() {
   function discardQueue() {
     queueClear()
     setPendingSync(0)
-    toast('File d\'attente vidée', { icon: '🗑️' })
+    toast('File d\'attente vidée')
   }
 
   useEffect(() => {
@@ -105,7 +108,7 @@ export default function App() {
             background: 'var(--bg)', border: '1.5px solid var(--border)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: '.5rem', color: 'var(--text-muted)',
             fontSize: '.8rem', width: 'calc(100% - 1.5rem)' }}>
-          <span>🔍</span>
+          <Search size={16} style={{ flexShrink: 0 }} />
           <span style={{ flex: 1 }}>Rechercher…</span>
           <span style={{ fontSize: '.65rem', background: 'var(--border)', borderRadius: 3,
             padding: '1px 4px', whiteSpace: 'nowrap' }}>Ctrl+K</span>
@@ -114,12 +117,12 @@ export default function App() {
         <nav className="sidebar-nav">
           {NAV.map(n => (
             <NavLink key={n.to} to={n.to} end={n.end}>
-              <span className="nav-icon">{n.icon}</span>
+              <span className="nav-icon"><n.icon size={20} /></span>
               {n.label}
             </NavLink>
           ))}
           <NavLink to="/new">
-            <span className="nav-icon">➕</span>
+            <span className="nav-icon"><Plus size={20} /></span>
             Nouvelle entrée
           </NavLink>
         </nav>
@@ -144,21 +147,21 @@ export default function App() {
               background: 'var(--warning-light)', border: '1px solid var(--warning)',
               fontSize: '.72rem', color: '#b45309' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', marginBottom: '.35rem' }}>
-                <span>📶</span>
+                <Wifi size={14} style={{ flexShrink: 0 }} />
                 <span style={{ flex: 1 }}>{pendingSync} entrée(s) en attente de sync</span>
               </div>
               <div style={{ display: 'flex', gap: '.35rem' }}>
                 <button onClick={syncQueue}
                   style={{ flex: 1, padding: '3px 0', borderRadius: 5, border: '1px solid var(--warning)',
                     background: 'transparent', cursor: 'pointer', fontSize: '.7rem', fontWeight: 700,
-                    color: '#b45309' }}>
-                  🔄 Réessayer
+                    color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.3rem' }}>
+                  <RefreshCw size={12} style={{ flexShrink: 0 }} /> Réessayer
                 </button>
                 <button onClick={discardQueue}
                   style={{ flex: 1, padding: '3px 0', borderRadius: 5, border: '1px solid var(--warning)',
                     background: 'transparent', cursor: 'pointer', fontSize: '.7rem', fontWeight: 700,
-                    color: '#b45309' }}>
-                  🗑 Supprimer
+                    color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.3rem' }}>
+                  <Trash2 size={12} style={{ flexShrink: 0 }} /> Supprimer
                 </button>
               </div>
             </div>
@@ -176,6 +179,7 @@ export default function App() {
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/focus" element={<Focus />} />
+          <Route path="/week" element={<Week />} />
           <Route path="/kanban" element={<Kanban />} />
         </Routes>
 
@@ -186,7 +190,7 @@ export default function App() {
       <nav className="bottom-nav">
         {NAV.map(n => (
           <NavLink key={n.to} to={n.to} end={n.end}>
-            <span className="nav-icon">{n.icon}</span>
+            <span className="nav-icon"><n.icon size={20} /></span>
             <span>{n.label}</span>
           </NavLink>
         ))}

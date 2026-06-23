@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { Check, X, Pencil, Trash2 } from 'lucide-react'
 import { api } from '../api/odoo'
 
 export default function EntryCard({ entry, queryKey }) {
@@ -38,17 +39,17 @@ export default function EntryCard({ entry, queryKey }) {
           />
           <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '.8rem' }}
             onClick={() => update.mutate({ unit_amount: parseFloat(hours) })}>
-            ✓
+            <Check size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} />
           </button>
           <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: '.8rem' }}
-            onClick={() => setEditing(false)}>✕</button>
+            onClick={() => setEditing(false)}><X size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /></button>
         </div>
       ) : (
         <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
           <span className="entry-hours">{entry.unit_amount}h</span>
-          <button onClick={() => setEditing(true)} style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>✏️</button>
+          <button onClick={() => setEditing(true)} style={{ color: 'var(--text-muted)', fontSize: '1rem' }}><Pencil size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /></button>
           <button onClick={() => { if (confirm('Supprimer ?')) del.mutate() }}
-            style={{ color: 'var(--danger)', fontSize: '1rem' }}>🗑️</button>
+            style={{ color: 'var(--danger)', fontSize: '1rem' }}><Trash2 size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /></button>
         </div>
       )}
     </div>

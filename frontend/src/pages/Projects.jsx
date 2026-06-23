@@ -6,6 +6,7 @@ import { fr } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { api } from '../api/odoo'
 import Select from 'react-select'
+import { FolderOpen, Archive, ClipboardList, Plus, Folder, Calendar, AlertTriangle, User, Building2 } from 'lucide-react'
 import { parsePhase, ISO_PHASES } from '../components/ISOPhase'
 
 export default function Projects() {
@@ -49,6 +50,7 @@ export default function Projects() {
   })
 
   const [showArchived, setShowArchived] = useState(false)
+  const [companyFilter, setCompanyFilter] = useState(null)  // null = toutes les sociétés
 
   const activeProjects = projects.filter(p => {
     const phase = parsePhase(p.description)
@@ -57,11 +59,81 @@ export default function Projects() {
   const archivedProjects = projects.filter(p => parsePhase(p.description) === 'Closing')
   const pool = showArchived ? archivedProjects : activeProjects
 
-  const filtered = pool.filter(p =>
+  const companyOf = (p) => (Array.isArray(p.company_id) ? p.company_id[1] : 'Sans société')
+
+  const searched = pool.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase())
   )
 
+  // Liste des sociétés présentes (pour les boutons-filtres), triées par nombre de projets
+  const companies = (() => {
+    const m = {}
+    searched.forEach(p => { const co = companyOf(p); m[co] = (m[co] || 0) + 1 })
+    return Object.entries(m).sort((a, b) => b[1] - a[1])
+  })()
+
+  // Application du filtre société
+  const filtered = companyFilter
+    ? searched.filter(p => companyOf(p) === companyFilter)
+    : searched
+
+  // Regroupement par société autorisée (ATD, Togo AI Lab, Togo Data Lab…)
+  const groupedByCompany = (() => {
+    const m = {}
+    filtered.forEach(p => {
+      const co = companyOf(p)
+      ;(m[co] = m[co] || []).push(p)
+    })
+    return Object.entries(m).sort((a, b) => b[1].length - a[1].length)
+  })()
+
   const projectOptions = projects.map(p => ({ value: p.id, label: p.name }))
+
+  // Rendu d'une carte projet (réutilisé dans chaque groupe société)
+  const renderProject = (p) => {
+    const overdue = p.date && isPast(parseISO(p.date))
+    const phaseId = parsePhase(p.description)
+    const phase = ISO_PHASES.find(ph => ph.id === phaseId)
+    const isClosed = phaseId === 'Closing'
+    return (
+      <Link key={p.id} to={`/projects/${p.id}`} style={{ textDecoration: 'none' }}>
+        <div className="card" style={{ marginBottom: '.6rem', cursor: 'pointer',
+          borderLeft: overdue ? '3px solid var(--danger)' : isClosed ? '3px solid #8b5cf6' : '3px solid transparent' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ fontWeight: 700, fontSize: '.95rem', color: 'var(--text)', flex: 1, marginRight: '.5rem',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {p.name}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '.2rem', flexShrink: 0 }}>
+              {p.date && (
+                <span style={{ fontSize: '.7rem', color: overdue ? 'var(--danger)' : 'var(--text-muted)',
+                  whiteSpace: 'nowrap', fontWeight: overdue ? 700 : 400 }}>
+                  <Calendar size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {format(parseISO(p.date), 'd MMM yy', { locale: fr })}
+                  {overdue ? <> <AlertTriangle size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /></> : ''}
+                </span>
+              )}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '.4rem', alignItems: 'center', marginTop: '.35rem', flexWrap: 'wrap' }}>
+            {phase && (
+              <span style={{ fontSize: '.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 700,
+                background: `${phase.color}18`, color: phase.color, border: `1px solid ${phase.color}44` }}>
+                <phase.icon size={12} style={{ verticalAlign: '-2px' }} /> {phase.label}
+              </span>
+            )}
+            {p.user_id && (
+              <span style={{ fontSize: '.7rem', color: 'var(--text-muted)' }}>
+                <User size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {Array.isArray(p.user_id) ? p.user_id[1] : p.user_id}
+              </span>
+            )}
+            {overdue && (
+              <span className="badge badge-danger" style={{ fontSize: '.63rem' }}>En retard</span>
+            )}
+          </div>
+        </div>
+      </Link>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
@@ -76,13 +148,15 @@ export default function Projects() {
           <button onClick={() => setShowArchived(v => !v)}
             className={`btn ${showArchived ? 'btn-primary' : 'btn-ghost'}`}
             style={{ padding: '6px 10px', fontSize: '.8rem' }}>
-            {showArchived ? '📂 Actifs' : '🗄 Archivés'}
+            {showArchived
+              ? <><FolderOpen size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Actifs</>
+              : <><Archive size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Archivés</>}
           </button>
           {!showArchived && (
             <>
               <button onClick={() => { setShowClone(true); setShowNew(false) }}
                 className="btn btn-ghost" style={{ padding: '6px 10px', fontSize: '.8rem' }}>
-                📋 Cloner
+                <ClipboardList size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Cloner
               </button>
               <button onClick={() => { setShowNew(true); setShowClone(false) }}
                 className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '.8rem' }}>
@@ -96,7 +170,9 @@ export default function Projects() {
       {(showNew || showClone) && (
         <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '1rem' }}>
           <div style={{ fontWeight: 700, marginBottom: '.75rem' }}>
-            {showClone ? '📋 Nouveau projet depuis template' : '➕ Nouveau projet'}
+            {showClone
+              ? <><ClipboardList size={16} style={{ verticalAlign: '-3px', flexShrink: 0 }} /> Nouveau projet depuis template</>
+              : <><Plus size={16} style={{ verticalAlign: '-3px', flexShrink: 0 }} /> Nouveau projet</>}
           </div>
           {showClone && (
             <div className="form-group">
@@ -134,60 +210,41 @@ export default function Projects() {
 
       <div style={{ padding: '1rem 1rem 0' }}>
         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="🔍 Rechercher un projet…"
+          placeholder="Rechercher un projet…"
           style={{ width: '100%', padding: '.6rem .75rem', border: '1.5px solid var(--border)',
             borderRadius: 8, fontSize: '.9rem' }} />
+      </div>
+
+      {/* Filtres par société autorisée */}
+      <div style={{ display: 'flex', gap: '.4rem', padding: '.65rem 1rem .25rem',
+        overflowX: 'auto', scrollbarWidth: 'none' }}>
+        <button onClick={() => setCompanyFilter(null)}
+          className={`chip${companyFilter === null ? ' selected' : ''}`}
+          style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <Building2 size={12} style={{ verticalAlign: '-2px' }} /> Toutes ({searched.length})
+        </button>
+        {companies.map(([co, n]) => (
+          <button key={co} onClick={() => setCompanyFilter(co)}
+            className={`chip${companyFilter === co ? ' selected' : ''}`}
+            style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+            {co} ({n})
+          </button>
+        ))}
       </div>
 
       <main className="page" style={{ paddingTop: '.75rem' }}>
         {isLoading && <div className="loading">Chargement…</div>}
         {!isLoading && filtered.length === 0 && (
-          <div className="empty-state"><div className="icon">📁</div><p>Aucun projet trouvé</p></div>
+          <div className="empty-state"><div className="icon"><Folder size={28} /></div><p>Aucun projet trouvé</p></div>
         )}
-        {filtered.map(p => {
-          const overdue = p.date && isPast(parseISO(p.date))
-          const phaseId = parsePhase(p.description)
-          const phase = ISO_PHASES.find(ph => ph.id === phaseId)
-          const isClosed = phaseId === 'Closing'
-          return (
-            <Link key={p.id} to={`/projects/${p.id}`} style={{ textDecoration: 'none' }}>
-              <div className="card" style={{ marginBottom: '.6rem', cursor: 'pointer',
-                borderLeft: overdue ? '3px solid var(--danger)' : isClosed ? '3px solid #8b5cf6' : '3px solid transparent' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ fontWeight: 700, fontSize: '.95rem', color: 'var(--text)', flex: 1, marginRight: '.5rem',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {p.name}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '.2rem', flexShrink: 0 }}>
-                    {p.date && (
-                      <span style={{ fontSize: '.7rem', color: overdue ? 'var(--danger)' : 'var(--text-muted)',
-                        whiteSpace: 'nowrap', fontWeight: overdue ? 700 : 400 }}>
-                        📅 {format(parseISO(p.date), 'd MMM yy', { locale: fr })}
-                        {overdue ? ' ⚠️' : ''}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '.4rem', alignItems: 'center', marginTop: '.35rem', flexWrap: 'wrap' }}>
-                  {phase && (
-                    <span style={{ fontSize: '.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 700,
-                      background: `${phase.color}18`, color: phase.color, border: `1px solid ${phase.color}44` }}>
-                      {phase.icon} {phase.label}
-                    </span>
-                  )}
-                  {p.user_id && (
-                    <span style={{ fontSize: '.7rem', color: 'var(--text-muted)' }}>
-                      👤 {Array.isArray(p.user_id) ? p.user_id[1] : p.user_id}
-                    </span>
-                  )}
-                  {overdue && (
-                    <span className="badge badge-danger" style={{ fontSize: '.63rem' }}>En retard</span>
-                  )}
-                </div>
-              </div>
-            </Link>
-          )
-        })}
+        {groupedByCompany.map(([company, list]) => (
+          <div key={company} style={{ marginBottom: '1rem' }}>
+            <div className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '.45rem' }}>
+              <Building2 size={13} style={{ flexShrink: 0 }} /> {company} ({list.length})
+            </div>
+            {list.map(renderProject)}
+          </div>
+        ))}
       </main>
     </div>
   )

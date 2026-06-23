@@ -116,20 +116,20 @@ export function TimerProvider({ children }) {
       }
       if (!navigator.onLine) {
         queueAdd(entry)
-        toast.success(`📶 Hors-ligne — ${hours}h mis en attente de sync`, { duration: 5000 })
+        toast.success(`Hors-ligne — ${hours}h mis en attente de sync`, { duration: 5000 })
       } else {
         try {
           await api.createTimesheet(entry)
           qc.invalidateQueries({ queryKey: ['timesheets-today'] })
           qc.invalidateQueries({ queryKey: ['timesheets-2weeks'] })
-          toast.success(`✅ ${hours}h enregistrées → ${saved.projectName}`)
+          toast.success(`${hours}h enregistrées → ${saved.projectName}`)
         } catch (e) {
           queueAdd(entry)
           toast.error(`Erreur réseau — ${hours}h sauvegardées localement`, { duration: 5000 })
         }
       }
     } else if (finalWorkMs < 60_000) {
-      toast('Durée inférieure à 1 min — non enregistré', { icon: 'ℹ️' })
+      toast('Durée inférieure à 1 min — non enregistré')
     }
   }
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { Pencil, X, AlertCircle } from 'lucide-react'
 import { api } from '../api/odoo'
 
 const PROB_LEVELS  = ['L', 'M', 'H']
@@ -94,9 +95,9 @@ function RiskRow({ task, projectId, onEdit }) {
       </td>
       <td style={{ padding: '6px 4px', whiteSpace: 'nowrap' }}>
         <button onClick={() => onEdit(task)} style={{ fontSize: '.75rem', color: 'var(--primary)', cursor: 'pointer',
-          background: 'none', border: 'none', padding: '2px 4px' }}>✏️</button>
+          background: 'none', border: 'none', padding: '2px 4px' }}><Pencil size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /></button>
         <button onClick={() => del.mutate()} style={{ fontSize: '.75rem', color: 'var(--danger)', cursor: 'pointer',
-          background: 'none', border: 'none', padding: '2px 4px' }}>✕</button>
+          background: 'none', border: 'none', padding: '2px 4px' }}><X size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /></button>
       </td>
     </tr>
   )
@@ -177,7 +178,7 @@ export default function RiskRegister({ projectId }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.6rem' }}>
         <div style={{ display: 'flex', gap: '.4rem', alignItems: 'center' }}>
           {critical > 0 && (
-            <span className="badge badge-danger">🔴 {critical} critique{critical > 1 ? 's' : ''}</span>
+            <span className="badge badge-danger"><AlertCircle size={14} color="var(--danger)" style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {critical} critique{critical > 1 ? 's' : ''}</span>
           )}
           <span className="badge badge-warning">{risks.length} risque{risks.length > 1 ? 's' : ''}</span>
           <span className="badge badge-danger" style={{ opacity: .8 }}>{issues.length} problème{issues.length > 1 ? 's' : ''}</span>

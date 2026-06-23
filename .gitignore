@@ -21,3 +21,6 @@ frontend/.vite/
 .vscode/
 .idea/
 *.swp
+
+# Logs (techniques, ne pas committer)
+*.log

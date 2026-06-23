@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app import gateway
-from app.routers import employees, projects, timesheets, tasks
+from app.routers import employees, projects, timesheets, tasks, calendar
 from app.bot.telegram_webhook import router as telegram_router
 
 app = FastAPI(title="Odoo Daily Entry API", version="1.0.0")
@@ -19,6 +19,7 @@ app.include_router(employees.router)
 app.include_router(projects.router)
 app.include_router(tasks.router)
 app.include_router(timesheets.router)
+app.include_router(calendar.router)
 app.include_router(telegram_router)
 
 

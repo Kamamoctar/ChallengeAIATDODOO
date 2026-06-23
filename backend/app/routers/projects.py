@@ -6,7 +6,7 @@ from app.gateway import OdooGatewayError
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
-PROJ_FIELDS = ["id", "name", "user_id", "date", "description", "tag_ids"]
+PROJ_FIELDS = ["id", "name", "user_id", "date", "description", "tag_ids", "company_id"]
 TASK_FIELDS = ["id", "name", "priority", "stage_id", "child_ids", "user_ids",
                "parent_id", "date_deadline", "description", "sequence"]
 
@@ -26,7 +26,7 @@ async def get_projects():
 @router.get("/detail")
 async def get_projects_detail():
     return await gateway.search_read(
-        "project.project", domain=[], fields=PROJ_FIELDS, limit=200, order="name asc"
+        "project.project", domain=[], fields=PROJ_FIELDS, limit=500, order="name asc"
     )
 
 

@@ -5,6 +5,7 @@ import { api } from '../api/odoo'
 import { useTeam } from '../context/TeamContext'
 import EmployeeToggle from '../components/EmployeeToggle'
 import toast from 'react-hot-toast'
+import { Search, Star, Folder, Calendar, AlertTriangle, Check } from 'lucide-react'
 
 const DEFAULT_STAGES = [
   { id: 'todo',        name: 'À faire',    color: 'var(--text-muted)' },
@@ -96,9 +97,10 @@ export default function Kanban() {
       </header>
 
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)',
-        padding: '.65rem 1rem', display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+        padding: '.65rem 1rem', display: 'flex', gap: '.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <Search size={16} style={{ verticalAlign: '-2px', flexShrink: 0, color: 'var(--text-muted)' }} />
         <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="🔍 Filtrer les tâches…"
+          placeholder="Filtrer les tâches…"
           style={{ flex: 1, minWidth: 150, padding: '.4rem .7rem', border: '1.5px solid var(--border)',
             borderRadius: 8, fontSize: '.85rem' }} />
         <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)}
@@ -171,22 +173,22 @@ function KanbanCard({ task, columns, stages, onMove, onComplete, alreadyDone }) 
       borderLeft: isStarred ? '3px solid var(--warning)' : isOverdue ? '3px solid var(--danger)' : '1px solid var(--border)' }}>
       <div style={{ fontSize: '.85rem', fontWeight: 600, color: 'var(--text)',
         lineHeight: 1.35, marginBottom: '.35rem' }}>
-        {isStarred ? '⭐ ' : ''}{task.name}
+        {isStarred && <Star size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} color="var(--warning)" fill="var(--warning)" />}{isStarred ? ' ' : ''}{task.name}
       </div>
       {projectName && (
         <div style={{ fontSize: '.7rem', marginBottom: '.4rem' }}>
           {projectId
             ? <Link to={`/projects/${projectId}`} style={{ color: 'var(--primary)', textDecoration: 'none' }}>
-                📁 {projectName}
+                <Folder size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {projectName}
               </Link>
-            : <span style={{ color: 'var(--text-muted)' }}>📁 {projectName}</span>
+            : <span style={{ color: 'var(--text-muted)' }}><Folder size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {projectName}</span>
           }
         </div>
       )}
       {task.date_deadline && (
         <div style={{ fontSize: '.68rem', fontWeight: isOverdue ? 700 : 400,
           color: isOverdue ? 'var(--danger)' : 'var(--text-muted)', marginBottom: '.4rem' }}>
-          📅 {task.date_deadline}{isOverdue ? ' ⚠' : ''}
+          <Calendar size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {task.date_deadline}{isOverdue ? <AlertTriangle size={14} style={{ verticalAlign: '-2px', flexShrink: 0, marginLeft: 2 }} color="var(--danger)" /> : ''}
         </div>
       )}
 
@@ -197,7 +199,7 @@ function KanbanCard({ task, columns, stages, onMove, onComplete, alreadyDone }) 
           disabled={done || alreadyDone || !onComplete}
           className={`task-done-btn task-done-btn--sm${(done || alreadyDone) ? ' task-done-btn--active' : ''}`}
           title="Marquer comme terminée"
-        >✓</button>
+        ><Check size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /></button>
         <button onClick={() => setShowMove(v => !v)}
           style={{ fontSize: '.68rem', color: 'var(--text-muted)', background: 'var(--bg)',
             border: '1px solid var(--border)', borderRadius: 6, padding: '2px 7px',

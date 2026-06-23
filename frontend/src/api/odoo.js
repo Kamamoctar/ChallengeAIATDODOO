@@ -36,6 +36,10 @@ export const api = {
   updateTask: (id, data) => request('PUT', `/api/tasks/${id}`, data),
   getAllStages: () => request('GET', '/api/tasks/stages/all'),
 
+  // Calendar (semaine)
+  getCalendarWeek: (userId, start, days = 7) =>
+    request('GET', `/api/calendar/week?user_id=${userId}&start=${start}&days=${days}`),
+
   // Timesheets
   getToday: (employeeId) => request('GET', `/api/timesheets/today?employee_id=${employeeId}`),
   getWeek: (employeeId, days = 7) => request('GET', `/api/timesheets/week?employee_id=${employeeId}&days=${days}`),

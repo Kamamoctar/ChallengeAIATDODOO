@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import { eachDayOfInterval, subDays, format, parseISO, isSameDay, isToday } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { Flame } from 'lucide-react'
 
 const DAILY_GOAL = 8
 const WEEKLY_GOAL = 40
@@ -56,7 +57,7 @@ function CustomBarTooltip({ active, payload, label }) {
     <div style={{ background: '#1a2e38', color: '#fff', borderRadius: 8,
       padding: '.6rem .9rem', fontSize: '.8rem', boxShadow: '0 4px 16px rgba(0,0,0,.3)' }}>
       <div style={{ fontWeight: 700, marginBottom: '.25rem' }}>{label}</div>
-      <div>{total.toFixed(2)}h {isOver && <span style={{ color: OVERTIME }}>🔥 +{(total - DAILY_GOAL).toFixed(2)}h</span>}</div>
+      <div>{total.toFixed(2)}h {isOver && <span style={{ color: OVERTIME }}><Flame size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> +{(total - DAILY_GOAL).toFixed(2)}h</span>}</div>
     </div>
   )
 }
@@ -125,7 +126,7 @@ export function WeeklyStats({ entries, compareEntries, memberName, compareName }
         </div>
         <div style={{ textAlign: 'right' }}>
           {isOver
-            ? <span className="badge badge-overtime">🔥 +{overtimeH.toFixed(1)}h overtime</span>
+            ? <span className="badge badge-overtime"><Flame size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> +{overtimeH.toFixed(1)}h overtime</span>
             : <span className="badge badge-primary">{Math.round(pct)}%</span>
           }
         </div>

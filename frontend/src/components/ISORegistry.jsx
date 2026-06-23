@@ -9,6 +9,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { Pencil, X } from 'lucide-react'
 import { api } from '../api/odoo'
 
 /* ─── Shared utils ─────────────────────────────────────── */
@@ -228,11 +229,11 @@ export default function ISORegistry({
                     <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
                       <button onClick={() => openEdit(task)}
                         style={{ fontSize: '.75rem', color: 'var(--primary)', cursor: 'pointer', background: 'none', border: 'none', padding: '2px 4px' }}>
-                        ✏️
+                        <Pencil size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} />
                       </button>
                       <button onClick={() => { if (confirm('Supprimer ?')) deleteItem.mutate(task.id) }}
                         style={{ fontSize: '.75rem', color: 'var(--danger)', cursor: 'pointer', background: 'none', border: 'none', padding: '2px 4px' }}>
-                        ✕
+                        <X size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} color="var(--danger)" />
                       </button>
                     </td>
                   </tr>

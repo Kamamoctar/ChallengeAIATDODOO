@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { Search, Folder, Star, Check } from 'lucide-react'
 import { api } from '../api/odoo'
 import { useTeam } from '../context/TeamContext'
 import { parsePhase, ISO_PHASES } from './ISOPhase'
@@ -66,7 +67,7 @@ export default function SearchModal({ open, onClose }) {
         boxShadow: '0 20px 60px rgba(0,0,0,.25)', overflow: 'hidden', margin: '0 1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', padding: '.75rem 1rem',
           borderBottom: '1px solid var(--border)', gap: '.6rem' }}>
-          <span style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>🔍</span>
+          <Search size={18} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
           <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
             placeholder="Rechercher un projet, une tâche…"
             style={{ flex: 1, border: 'none', outline: 'none', fontSize: '1rem',
@@ -82,7 +83,7 @@ export default function SearchModal({ open, onClose }) {
                 const phase = ISO_PHASES.find(ph => ph.id === (parsePhase(p.description) || 'Planning'))
                 return (
                   <ResultRow key={`p-${p.id}`} onClick={() => goProject(p.id)}
-                    icon={phase?.icon || '📁'}
+                    icon={phase?.icon || Folder}
                     title={p.name}
                     sub={phase ? `${phase.label}${p.date ? ` · ${p.date}` : ''}` : undefined} />
                 )
@@ -93,7 +94,7 @@ export default function SearchModal({ open, onClose }) {
             <Section label="Mes tâches">
               {filteredTasks.map(t => (
                 <ResultRow key={`t-${t.id}`} onClick={() => goTask(t)}
-                  icon={t.priority === '1' ? '⭐' : '✓'}
+                  icon={t.priority === '1' ? Star : Check}
                   title={t.name}
                   sub={Array.isArray(t.project_id) ? t.project_id[1] : 'Sans projet'} />
               ))}
@@ -134,7 +135,7 @@ function Section({ label, children }) {
   )
 }
 
-function ResultRow({ onClick, icon, title, sub }) {
+function ResultRow({ onClick, icon: Icon, title, sub }) {
   const [hovered, setHovered] = useState(false)
   return (
     <button onClick={onClick}
@@ -143,7 +144,7 @@ function ResultRow({ onClick, icon, title, sub }) {
       style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '.75rem',
         padding: '.55rem 1rem', background: hovered ? 'var(--bg)' : 'transparent',
         border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-      <span style={{ fontSize: '1rem', flexShrink: 0 }}>{icon}</span>
+      {Icon && <Icon size={16} style={{ flexShrink: 0 }} />}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: '.88rem', fontWeight: 500, color: 'var(--text)',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

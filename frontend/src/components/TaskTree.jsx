@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { api } from '../api/odoo'
 import { useTimer } from '../context/TimerContext'
 import { useTeam } from '../context/TeamContext'
+import { Star, AlertCircle, Calendar, AlertTriangle, Square, Play, Inbox, Clock } from 'lucide-react'
 import QuickTimelog from './QuickTimelog'
 
 const RISK_RE      = /^\[(RISK|RISQUE)\]/i
@@ -11,7 +12,7 @@ const ISSUE_RE     = /^\[(ISSUE|PROBLEME)\]/i
 const MILESTONE_RE = /^\[MILESTONE\]/i
 
 function priorityBadge(p) {
-  return p === '1' ? <span style={{ color: '#f59e0b', fontSize: '.8rem' }}>⭐</span> : null
+  return p === '1' ? <span style={{ color: '#f59e0b', fontSize: '.8rem' }}><Star size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} color="#f59e0b" fill="#f59e0b" /></span> : null
 }
 
 function TaskNode({ task, projectId, projectName, depth = 0, allTasks, wbsNumber }) {
@@ -34,7 +35,7 @@ function TaskNode({ task, projectId, projectName, depth = 0, allTasks, wbsNumber
   const isMilestone = MILESTONE_RE.test(task.name)
   const displayName = task.name.replace(/^\[MILESTONE\]\s*/i, '')
   const isOverdue = task.date_deadline && task.date_deadline < new Date().toISOString().split('T')[0]
-  const hasBlocker = (task.description || '').includes('🚨') || (task.description || '').includes('BLOCAGE')
+  const hasBlocker = (task.description || '').includes('BLOCAGE')
 
   const updateTask = useMutation({
     mutationFn: ({ id, data }) => api.updateTask(id, data),
@@ -54,7 +55,7 @@ function TaskNode({ task, projectId, projectName, depth = 0, allTasks, wbsNumber
   function handleBlockerSubmit() {
     if (!blockerText.trim()) return
     const existing = task.description || ''
-    const newDesc = `<p>🚨 <strong>BLOCAGE:</strong> ${blockerText}</p>${existing}`
+    const newDesc = `<p><strong>BLOCAGE:</strong> ${blockerText}</p>${existing}`
     updateTask.mutate({ id: task.id, data: { description: newDesc } })
     setBlockerText('')
     setShowBlocker(false)
@@ -89,7 +90,7 @@ function TaskNode({ task, projectId, projectName, depth = 0, allTasks, wbsNumber
           <div style={{ display: 'flex', alignItems: 'center', gap: '.3rem', flexWrap: 'wrap' }}>
             {isMilestone && <span title="Jalon" style={{ color: '#8b5cf6' }}>◆</span>}
             {priorityBadge(task.priority)}
-            {hasBlocker && <span title="Blocage signalé" style={{ fontSize: '.75rem' }}>🚨</span>}
+            {hasBlocker && <span title="Blocage signalé" style={{ fontSize: '.75rem' }}><AlertCircle size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} color="var(--danger)" /></span>}
             <span style={{ fontSize: '.9rem', fontWeight: depth === 0 ? 600 : 400,
               color: isMilestone ? '#6d28d9' : undefined }}>
               {displayName}
@@ -103,7 +104,7 @@ function TaskNode({ task, projectId, projectName, depth = 0, allTasks, wbsNumber
             {task.date_deadline && (
               <span style={{ fontSize: '.7rem', color: isOverdue ? 'var(--danger)' : 'var(--text-muted)',
                 fontWeight: isOverdue ? 700 : 400 }}>
-                📅 {task.date_deadline}{isOverdue ? ' ⚠️' : ''}
+                <Calendar size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {task.date_deadline}{isOverdue ? <AlertTriangle size={14} style={{ verticalAlign: '-2px', flexShrink: 0, marginLeft: 2 }} color="var(--danger)" /> : ''}
               </span>
             )}
             {isMilestone && (
@@ -122,17 +123,17 @@ function TaskNode({ task, projectId, projectName, depth = 0, allTasks, wbsNumber
               color: '#fff', border: 'none', borderRadius: 6,
               padding: '3px 8px', fontSize: '.75rem', cursor: 'pointer',
             }}>
-            {isThisRunning ? '⏹' : '▶'}
+            {isThisRunning ? <Square size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> : <Play size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} />}
           </button>
           <button onClick={() => setShowLog(l => !l)} title="Log manuel"
             style={{ background: 'var(--bg)', border: '1px solid var(--border)',
               borderRadius: 6, padding: '3px 8px', fontSize: '.75rem', cursor: 'pointer' }}>
-            ⏱
+            <Clock size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} />
           </button>
           <button onClick={() => setShowBlocker(b => !b)} title="Signaler un blocage"
             style={{ background: 'var(--bg)', border: '1px solid var(--border)',
               borderRadius: 6, padding: '3px 8px', fontSize: '.75rem', cursor: 'pointer' }}>
-            🚨
+            <AlertCircle size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} color="var(--danger)" />
           </button>
         </div>
       </div>
@@ -148,7 +149,7 @@ function TaskNode({ task, projectId, projectName, depth = 0, allTasks, wbsNumber
         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
           padding: '.75rem', margin: '.25rem 0 .25rem 20px' }}>
           <div style={{ fontSize: '.8rem', fontWeight: 700, color: '#dc2626', marginBottom: '.4rem' }}>
-            🚨 Signaler un blocage / retard
+            <AlertCircle size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} color="#dc2626" /> Signaler un blocage / retard
           </div>
           <input
             type="text" value={blockerText} onChange={e => setBlockerText(e.target.value)}
@@ -187,7 +188,7 @@ export default function TaskTree({ projectId, projectName }) {
   })
 
   if (isLoading) return <div className="loading">Chargement des tâches…</div>
-  if (!tasks.length) return <div className="empty-state"><div className="icon">📭</div><p>Aucune tâche</p></div>
+  if (!tasks.length) return <div className="empty-state"><div className="icon"><Inbox size={28} style={{ verticalAlign: '-2px', flexShrink: 0 }} /></div><p>Aucune tâche</p></div>
 
   // Exclude risk/issue tasks from WBS (they appear in the Risk Register)
   const wbsTasks = tasks.filter(t => !RISK_RE.test(t.name) && !ISSUE_RE.test(t.name))

@@ -1,3 +1,4 @@
+import { Sun, Moon } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext'
 
 export default function ThemeSwitch({ iconOnly = false }) {
@@ -23,7 +24,7 @@ export default function ThemeSwitch({ iconOnly = false }) {
         onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
         onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
       >
-        {isDark ? '☀️' : '🌙'}
+        {isDark ? <Sun size={16} /> : <Moon size={16} />}
       </button>
     )
   }
@@ -39,13 +40,13 @@ export default function ThemeSwitch({ iconOnly = false }) {
       onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && toggle()}
       title={isDark ? 'Passer en mode clair' : 'Passer en mode sombre'}
     >
-      <span className="theme-switch-label">☀️</span>
+      <span className="theme-switch-label"><Sun size={14} /></span>
       <div className={`theme-switch-track${isDark ? ' theme-switch-track--on' : ''}`}>
         <div className="theme-switch-thumb">
-          <span>{isDark ? '🌙' : '☀️'}</span>
+          <span>{isDark ? <Moon size={11} /> : <Sun size={11} />}</span>
         </div>
       </div>
-      <span className="theme-switch-label">🌙</span>
+      <span className="theme-switch-label"><Moon size={14} /></span>
       <span className="theme-switch-text">
         {isDark ? 'Mode sombre' : 'Mode clair'}
       </span>

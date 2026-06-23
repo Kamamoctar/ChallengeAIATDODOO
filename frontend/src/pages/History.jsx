@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { Inbox, Flame } from 'lucide-react'
 import { api } from '../api/odoo'
 import { useTeam } from '../context/TeamContext'
 import EmployeeToggle from '../components/EmployeeToggle'
@@ -60,7 +61,7 @@ export default function History() {
               className="btn btn-ghost"
               style={{ padding: '5px 10px', fontSize: '.78rem' }}
               title="Exporter en CSV">
-              ⬇ CSV
+              CSV
             </button>
           )}
           <EmployeeToggle />
@@ -72,7 +73,7 @@ export default function History() {
 
         {!isLoading && days.length === 0 && (
           <div className="empty-state">
-            <div className="icon">📭</div>
+            <div className="icon"><Inbox size={28} style={{ verticalAlign: '-2px', flexShrink: 0 }} /></div>
             <p>Aucune entrée ces 14 derniers jours</p>
           </div>
         )}
@@ -90,7 +91,7 @@ export default function History() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem' }}>
                   {isOver && (
                     <span className="badge badge-overtime" style={{ fontSize: '.65rem' }}>
-                      🔥 +{(total - 8).toFixed(1)}h
+                      <Flame size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> +{(total - 8).toFixed(1)}h
                     </span>
                   )}
                   <span style={{ color: isOver ? 'var(--overtime)' : 'var(--primary)', fontWeight: 700 }}>

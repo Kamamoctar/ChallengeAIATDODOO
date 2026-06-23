@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { format, parseISO, differenceInDays, subDays } from 'date-fns'
@@ -7,6 +7,10 @@ import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
+import {
+  Flame, AlertTriangle, AlertCircle, ClipboardList, Check, User, BarChart3,
+  Landmark, Zap, Circle,
+} from 'lucide-react'
 import { api } from '../api/odoo'
 import { useTeam } from '../context/TeamContext'
 import EmployeeToggle from '../components/EmployeeToggle'
@@ -46,6 +50,37 @@ export default function Dashboard() {
     staleTime: 120_000,
   })
 
+  // Identifiant "utilisateur" (res.users) du membre sélectionné, pour retrouver SES tâches.
+  const userId = active.id === parseInt(import.meta.env.VITE_EMPLOYEE_A_ID || '0')
+    ? parseInt(import.meta.env.VITE_EMPLOYEE_A_USER_ID || '0')
+    : parseInt(import.meta.env.VITE_EMPLOYEE_B_USER_ID || '0')
+
+  const { data: myTasks = [] } = useQuery({
+    queryKey: ['my-tasks-dash', userId],
+    queryFn: () => api.getMyTasks(userId),
+    enabled: userId > 0,
+    staleTime: 120_000,
+  })
+
+  // Liste des projets du membre = projets distincts tirés de ses tâches,
+  // enrichis avec la date d'échéance et la phase (depuis le détail des projets).
+  const myProjects = useMemo(() => {
+    const counts = {}
+    myTasks.forEach(t => {
+      const id = Array.isArray(t.project_id) ? t.project_id[0] : null
+      if (!id) return
+      const name = Array.isArray(t.project_id) ? t.project_id[1] : 'Sans nom'
+      if (!counts[id]) counts[id] = { id, name, taskCount: 0 }
+      counts[id].taskCount++
+    })
+    return Object.values(counts)
+      .map(p => {
+        const detail = projects.find(d => d.id === p.id)
+        return { ...p, date: detail?.date || null, description: detail?.description || '' }
+      })
+      .sort((a, b) => b.taskCount - a.taskCount)
+  }, [myTasks, projects])
+
   useDeadlineNotifications(projects)
 
   const cutoff = format(subDays(new Date(), 7), 'yyyy-MM-dd')
@@ -60,9 +95,9 @@ export default function Dashboard() {
   const isOverToday = todayH > DAILY_GOAL
 
   const TABS = [
-    { id: 'personal',  label: '👤 Moi' },
-    { id: 'chef',      label: '📊 Chef de Projet' },
-    { id: 'direction', label: '🏛️ Direction' },
+    { id: 'personal',  label: 'Moi',             icon: User },
+    { id: 'chef',      label: 'Chef de Projet',  icon: BarChart3 },
+    { id: 'direction', label: 'Direction',       icon: Landmark },
   ]
 
   return (
@@ -86,7 +121,7 @@ export default function Dashboard() {
               background: 'none', border: 'none', borderRadius: 0, cursor: 'pointer',
               transition: 'all .15s',
             }}>
-            {t.label}
+            <t.icon size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {t.label}
           </button>
         ))}
       </div>
@@ -101,6 +136,7 @@ export default function Dashboard() {
           active={active} compare={compare}
           todayEntries={todayEntries} loadingToday={loadingToday}
           qkToday={['timesheets-today', active.id]}
+          myProjects={myProjects}
         />
       )}
       {tab === 'chef' && (
@@ -128,19 +164,20 @@ function PersonalTab({
   todayH, weekTotal, avgPerDay, overtimeH, weekOvertimeH,
   dailyPct, overtimePct, isOverToday,
   weekEntries, compareEntries, prevWeekTotal, active, compare,
-  todayEntries, loadingToday, qkToday,
+  todayEntries, loadingToday, qkToday, myProjects = [],
 }) {
   const weekTrend = prevWeekTotal > 0 ? weekTotal - prevWeekTotal : null
+  const now = new Date()
   return (
     <main className="page">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '.75rem', marginBottom: '1rem' }}>
         <StatCard value={`${todayH.toFixed(1)}h`} label="Aujourd'hui"
-          sub={isOverToday ? `🔥 +${overtimeH.toFixed(1)}h overtime` : `/ ${DAILY_GOAL}h`}
+          sub={isOverToday ? <><Flame size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> +{overtimeH.toFixed(1)}h overtime</> : `/ ${DAILY_GOAL}h`}
           accent={isOverToday} />
         <StatCard value={`${weekTotal.toFixed(1)}h`} label="Cette semaine"
           sub={weekTrend !== null
             ? (weekTrend >= 0 ? `▲ +${weekTrend.toFixed(1)}h vs S-1` : `▼ ${weekTrend.toFixed(1)}h vs S-1`)
-            : (weekOvertimeH > 0 ? `🔥 +${weekOvertimeH.toFixed(1)}h` : `/ 40h`)}
+            : (weekOvertimeH > 0 ? <><Flame size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> +{weekOvertimeH.toFixed(1)}h</> : `/ 40h`)}
           color={weekTrend !== null ? (weekTrend >= 0 ? 'var(--success)' : 'var(--danger)') : undefined} />
         <StatCard value={`${avgPerDay.toFixed(1)}h`} label="Moy. / jour"
           sub="jours travaillés" />
@@ -152,7 +189,7 @@ function PersonalTab({
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="card-title" style={{ marginBottom: '.5rem' }}>
           Progression du jour
-          {isOverToday && <span className="badge badge-overtime" style={{ marginLeft: '.5rem' }}>🔥 {Math.round((todayH / DAILY_GOAL) * 100)}%</span>}
+          {isOverToday && <span className="badge badge-overtime" style={{ marginLeft: '.5rem' }}><Flame size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {Math.round((todayH / DAILY_GOAL) * 100)}%</span>}
         </div>
         <div className="progress-bar" style={{ height: 10, position: 'relative' }}>
           <div className="progress-bar-fill" style={{
@@ -185,11 +222,57 @@ function PersonalTab({
         <ProjectPieChart entries={weekEntries} />
       </div>
 
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card-title">
+          Mes projets · {active.name?.split(' ')[0]} ({myProjects.length})
+        </div>
+        {myProjects.length === 0 ? (
+          <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '.85rem', padding: '.5rem 0' }}>
+            Aucun projet avec des tâches assignées
+          </div>
+        ) : myProjects.map(p => {
+          const phase = ISO_PHASES.find(ph => ph.id === (parsePhase(p.description) || 'Planning'))
+          const daysLeft = p.date ? differenceInDays(parseISO(p.date), now) : null
+          const overdue = daysLeft !== null && daysLeft < 0
+          const soon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 7
+          return (
+            <Link key={p.id} to={`/projects/${p.id}`}
+              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center',
+                justifyContent: 'space-between', gap: '.75rem', padding: '.5rem 0',
+                borderBottom: '1px solid var(--border)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: '.85rem', color: 'var(--text)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {p.name}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', marginTop: '.15rem' }}>
+                  {phase && (
+                    <span style={{ fontSize: '.62rem', padding: '1px 5px', borderRadius: 3,
+                      background: `${phase.color}18`, color: phase.color, fontWeight: 700 }}>
+                      <phase.icon size={12} style={{ verticalAlign: '-2px' }} /> {phase.label}
+                    </span>
+                  )}
+                  <span style={{ fontSize: '.68rem', color: 'var(--text-muted)' }}>
+                    {p.taskCount} tâche{p.taskCount > 1 ? 's' : ''}
+                  </span>
+                </div>
+              </div>
+              {daysLeft !== null && (
+                <span style={{ fontSize: '.72rem', fontWeight: 800, flexShrink: 0,
+                  color: overdue ? 'var(--danger)' : soon ? '#b45309' : 'var(--text-muted)' }}>
+                  {overdue ? <><AlertTriangle size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {Math.abs(daysLeft)}j</> : daysLeft === 0 ? "Auj." : `J-${daysLeft}`}
+                </span>
+              )}
+            </Link>
+          )
+        })}
+      </div>
+
       <div className="section-title">Entrées du jour</div>
       {loadingToday && <div className="loading">Chargement…</div>}
       {!loadingToday && todayEntries.length === 0 && (
         <div className="empty-state">
-          <div className="icon">📋</div>
+          <div className="icon"><ClipboardList size={28} /></div>
           <p>Aucune entrée aujourd'hui</p>
           <p style={{ fontSize: '.8rem', marginTop: '.25rem' }}>Appuyez sur + pour commencer</p>
         </div>
@@ -238,13 +321,13 @@ function ChefTab({ projects, weekEntries, compareEntries, active, compare, weekT
         <StatCard value={activeProjects.length} label="Projets actifs"
           sub={`sur ${projects.length} au total`} color="var(--primary)" />
         <StatCard value={overdueProjects.length} label="En retard"
-          sub={overdueProjects.length > 0 ? 'deadlines dépassées' : '✓ Tous dans les délais'}
+          sub={overdueProjects.length > 0 ? 'deadlines dépassées' : <><Check size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Tous dans les délais</>}
           color={overdueProjects.length > 0 ? 'var(--danger)' : 'var(--success)'}
           highlight={overdueProjects.length > 0} invertHighlight />
         <StatCard value={`${totalA.toFixed(1)}h`} label="Mes heures / sem."
           sub={prevWeekTotal > 0
             ? (totalA >= prevWeekTotal ? `▲ +${(totalA - prevWeekTotal).toFixed(1)}h vs S-1` : `▼ ${(totalA - prevWeekTotal).toFixed(1)}h vs S-1`)
-            : (totalA > WEEKLY_GOAL ? `🔥 +${(totalA - WEEKLY_GOAL).toFixed(1)}h` : `/ ${WEEKLY_GOAL}h`)}
+            : (totalA > WEEKLY_GOAL ? <><Flame size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> +{(totalA - WEEKLY_GOAL).toFixed(1)}h</> : `/ ${WEEKLY_GOAL}h`)}
           color={prevWeekTotal > 0 ? (totalA >= prevWeekTotal ? 'var(--success)' : 'var(--danger)') : undefined} />
         <StatCard value={`${(totalA + totalB).toFixed(1)}h`} label="Équipe / sem."
           sub={`${active.name?.split(' ')[0]} + ${compare?.name?.split(' ')[0]}`} />
@@ -254,7 +337,7 @@ function ChefTab({ projects, weekEntries, compareEntries, active, compare, weekT
       {needsAction.length > 0 && (
         <div className="card" style={{ marginBottom: '1rem', border: '1.5px solid var(--danger)' }}>
           <div className="card-title" style={{ color: 'var(--danger)' }}>
-            🚨 Projets nécessitant une action ({needsAction.length})
+            <AlertCircle size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Projets nécessitant une action ({needsAction.length})
           </div>
           {needsAction.slice(0, 4).map(p => {
             const daysLeft = p.date ? differenceInDays(parseISO(p.date), now) : null
@@ -274,13 +357,13 @@ function ChefTab({ projects, weekEntries, compareEntries, active, compare, weekT
                   {phase && (
                     <span style={{ fontSize: '.62rem', padding: '1px 5px', borderRadius: 3,
                       background: `${phase.color}18`, color: phase.color, fontWeight: 700 }}>
-                      {phase.icon} {phase.label}
+                      <phase.icon size={12} style={{ verticalAlign: '-2px' }} /> {phase.label}
                     </span>
                   )}
                 </div>
                 <span style={{ fontSize: '.75rem', fontWeight: 800, flexShrink: 0, marginLeft: '.75rem',
                   color: overdue ? 'var(--danger)' : '#b45309' }}>
-                  {overdue ? `⚠ ${Math.abs(daysLeft)}j retard` : `⚡ Dans ${daysLeft}j`}
+                  {overdue ? <><AlertTriangle size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {Math.abs(daysLeft)}j retard</> : <><Zap size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Dans {daysLeft}j</>}
                 </span>
               </Link>
             )
@@ -297,7 +380,7 @@ function ChefTab({ projects, weekEntries, compareEntries, active, compare, weekT
             return (
               <div key={ph.id} style={{ display: 'flex', alignItems: 'center', gap: '.65rem' }}>
                 <div style={{ width: 76, fontSize: '.72rem', fontWeight: 700, color: ph.color, flexShrink: 0 }}>
-                  {ph.icon} {ph.label}
+                  <ph.icon size={12} style={{ verticalAlign: '-2px' }} /> {ph.label}
                 </div>
                 <div style={{ flex: 1, background: 'var(--border)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
                   <div style={{
@@ -339,13 +422,13 @@ function ChefTab({ projects, weekEntries, compareEntries, active, compare, weekT
                       {p.name}
                     </div>
                     {phase && <span style={{ fontSize: '.62rem', color: phase.color, fontWeight: 700 }}>
-                      {phase.icon} {phase.label}
+                      <phase.icon size={12} style={{ verticalAlign: '-2px' }} /> {phase.label}
                     </span>}
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ fontSize: '.75rem', fontWeight: 800,
                       color: overdue ? 'var(--danger)' : critical ? '#b45309' : 'var(--text-muted)' }}>
-                      {overdue ? `⚠ ${Math.abs(p.daysLeft)}j retard` : p.daysLeft === 0 ? "Aujourd'hui !" : `Dans ${p.daysLeft}j`}
+                      {overdue ? <><AlertTriangle size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {Math.abs(p.daysLeft)}j retard</> : p.daysLeft === 0 ? "Aujourd'hui !" : `Dans ${p.daysLeft}j`}
                     </div>
                     <div style={{ fontSize: '.68rem', color: 'var(--text-muted)' }}>
                       {format(parseISO(p.date), 'd MMM', { locale: fr })}
@@ -389,7 +472,7 @@ function DirectionTab({ projects, weekEntries, compareEntries, prevWeekTotal, ac
 
   // Phase distribution for donut
   const phaseData = ISO_PHASES.map(ph => ({
-    name: `${ph.icon} ${ph.label}`,
+    name: ph.label,
     value: projects.filter(p => (parsePhase(p.description) || 'Planning') === ph.id).length,
     color: ph.color,
   })).filter(d => d.value > 0)
@@ -405,7 +488,7 @@ function DirectionTab({ projects, weekEntries, compareEntries, prevWeekTotal, ac
     .sort((a, b) => a.daysLeft - b.daysLeft)
 
   return (
-    <main className="page">
+    <main className="page theme-direction">
 
       {/* Health Score Hero */}
       <div className="card" style={{ marginBottom: '1rem',
@@ -426,8 +509,12 @@ function DirectionTab({ projects, weekEntries, compareEntries, prevWeekTotal, ac
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '.2rem' }}>
-              {healthPct >= 80 ? '🟢' : healthPct >= 50 ? '🟡' : '🔴'}
+            <div style={{ marginBottom: '.2rem' }}>
+              {healthPct >= 80
+                ? <Circle size={28} fill="#1c9a97" color="#1c9a97" />
+                : healthPct >= 50
+                ? <Circle size={28} fill="#f5c36e" color="#f5c36e" />
+                : <Circle size={28} fill="#ef4444" color="#ef4444" />}
             </div>
             <div style={{ fontSize: '.72rem', opacity: .75 }}>{projects.length} projets total</div>
           </div>
@@ -447,10 +534,10 @@ function DirectionTab({ projects, weekEntries, compareEntries, prevWeekTotal, ac
           sub={`${projects.filter(p => parsePhase(p.description) === 'Closing').length} en clôture`}
           color="var(--primary)" />
         <StatCard value={`${totalA.toFixed(1)}h`} label={active.name?.split(' ')[0] || 'Membre A'}
-          sub={totalA >= WEEKLY_GOAL ? '🔥 Objectif atteint' : `/ ${WEEKLY_GOAL}h`}
+          sub={totalA >= WEEKLY_GOAL ? <><Flame size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Objectif atteint</> : `/ ${WEEKLY_GOAL}h`}
           color={totalA >= WEEKLY_GOAL ? 'var(--success)' : 'var(--text)'} />
         <StatCard value={`${totalB.toFixed(1)}h`} label={compare?.name?.split(' ')[0] || 'Membre B'}
-          sub={totalB >= WEEKLY_GOAL ? '🔥 Objectif atteint' : `/ ${WEEKLY_GOAL}h`}
+          sub={totalB >= WEEKLY_GOAL ? <><Flame size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Objectif atteint</> : `/ ${WEEKLY_GOAL}h`}
           color={totalB >= WEEKLY_GOAL ? 'var(--success)' : 'var(--text)'} />
       </div>
 
@@ -541,7 +628,7 @@ function DirectionTab({ projects, weekEntries, compareEntries, prevWeekTotal, ac
                         {p.name}
                       </div>
                       {phase && <span style={{ fontSize: '.62rem', color: phase.color, fontWeight: 700 }}>
-                        {phase.icon} {phase.label}
+                        <phase.icon size={12} style={{ verticalAlign: '-2px' }} /> {phase.label}
                       </span>}
                     </div>
                   </Link>
@@ -578,7 +665,7 @@ function DirectionTab({ projects, weekEntries, compareEntries, prevWeekTotal, ac
               </div>
               <div style={{ fontSize: '.68rem', color: 'var(--text-muted)', marginTop: '.2rem' }}>
                 {Math.round(Math.min(pct, 100))}% de l'objectif
-                {over && ` · 🔥 +${(m.hours - WEEKLY_GOAL).toFixed(1)}h overtime`}
+                {over && <> · <Flame size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> +{(m.hours - WEEKLY_GOAL).toFixed(1)}h overtime</>}
               </div>
             </div>
           )

@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { ClipboardList, CheckCircle2, Pencil } from 'lucide-react'
 import { api } from '../api/odoo'
 import { parseMeta, encodeMeta } from './ISORegistry'
 
@@ -77,7 +78,7 @@ export default function ProjectCharter({ projectId, projectName }) {
   if (!charterTask && !editing) {
     return (
       <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-        <div style={{ fontSize: '2.5rem', marginBottom: '.75rem' }}>📋</div>
+        <div style={{ fontSize: '2.5rem', marginBottom: '.75rem' }}><ClipboardList size={28} style={{ verticalAlign: '-2px', flexShrink: 0 }} /></div>
         <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '.4rem' }}>Charte de projet non rédigée</div>
         <div style={{ fontSize: '.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
           La charte de projet est le document fondateur du projet (ISO 21500 §4.3.2).<br />
@@ -128,9 +129,9 @@ export default function ProjectCharter({ projectId, projectName }) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <div style={{ display: 'flex', align: 'center', gap: '.5rem' }}>
-          <span className="badge badge-success">✅ Charte rédigée</span>
+          <span className="badge badge-success"><CheckCircle2 size={14} color="var(--success)" style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Charte rédigée</span>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={() => setEditing(true)}>✏️ Modifier</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => setEditing(true)}><Pencil size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Modifier</button>
       </div>
 
       {SECTIONS.filter(s => charter[s.key]?.trim()).map(s => (

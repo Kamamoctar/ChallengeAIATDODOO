@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { Rocket, ClipboardList, Settings2, Search, CheckCircle2, AlertTriangle, X } from 'lucide-react'
 import { api } from '../api/odoo'
 
 export const ISO_PHASES = [
-  { id: 'Initiating',    label: 'Initialisation', short: 'Init.',  icon: '🚀', color: '#0a4b8b' },
-  { id: 'Planning',      label: 'Planification',  short: 'Plan.',  icon: '📋', color: '#b45309' },
-  { id: 'Implementing',  label: 'Réalisation',    short: 'Réal.',  icon: '⚙️', color: '#1c9a97' },
-  { id: 'Controlling',   label: 'Contrôle',       short: 'Ctrl.',  icon: '🔍', color: '#139cbc' },
-  { id: 'Closing',       label: 'Clôture',        short: 'Clôt.', icon: '✅', color: '#5acaad' },
+  { id: 'Initiating',    label: 'Initialisation', short: 'Init.',  icon: Rocket,        color: '#0a4b8b' },
+  { id: 'Planning',      label: 'Planification',  short: 'Plan.',  icon: ClipboardList, color: '#b45309' },
+  { id: 'Implementing',  label: 'Réalisation',    short: 'Réal.',  icon: Settings2,     color: '#1c9a97' },
+  { id: 'Controlling',   label: 'Contrôle',       short: 'Ctrl.',  icon: Search,        color: '#139cbc' },
+  { id: 'Closing',       label: 'Clôture',        short: 'Clôt.', icon: CheckCircle2,  color: '#5acaad' },
 ]
 
 const PHASE_COMMENT_RE = /<!-- ISO21500-PHASE:(\w+) -->\n?/
@@ -87,7 +88,7 @@ export default function ISOPhase({ projectId, description, allTasks, readOnly = 
           Phase ISO 21500
         </span>
         <span className="badge badge-primary" style={{ fontSize: '.65rem' }}>
-          {phase?.icon} {phase?.label}
+          {phase && <phase.icon size={13} style={{ verticalAlign: '-2px' }} />} {phase?.label}
         </span>
       </div>
 
@@ -111,7 +112,7 @@ export default function ISOPhase({ projectId, description, allTasks, readOnly = 
                 textAlign: 'center', transition: 'all .15s',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
               }}>
-              <span style={{ fontSize: '.9rem' }}>{ph.icon}</span>
+              <ph.icon size={15} />
               <span style={{ fontSize: '.6rem', lineHeight: 1.1 }}>{ph.short}</span>
             </button>
           )
@@ -137,13 +138,13 @@ export default function ISOPhase({ projectId, description, allTasks, readOnly = 
         <div style={{ marginTop: '.75rem', background: 'var(--warning-light)',
           border: '1px solid var(--warning)', borderRadius: 8, padding: '.85rem' }}>
           <div style={{ fontWeight: 700, fontSize: '.82rem', color: '#92400e', marginBottom: '.5rem' }}>
-            ⚠ Certains éléments recommandés manquent pour la phase «{' '}
+            <AlertTriangle size={14} style={{ verticalAlign: '-2px' }} /> Certains éléments recommandés manquent pour la phase «{' '}
             {ISO_PHASES.find(p => p.id === pendingPhase.phaseId)?.label} »
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '.3rem', marginBottom: '.65rem' }}>
             {pendingPhase.unchecked.map(g => (
               <div key={g.key} style={{ fontSize: '.8rem', color: '#78350f', display: 'flex', gap: '.4rem', alignItems: 'center' }}>
-                <span style={{ color: 'var(--danger)' }}>✗</span>
+                <X size={13} color="var(--danger)" />
                 {g.label}
               </div>
             ))}

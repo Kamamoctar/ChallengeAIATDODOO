@@ -2,6 +2,11 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import {
+  FolderTree, AlertTriangle, ClipboardList, Users, User, RefreshCw,
+  CheckCircle2, Target, BookOpen, Megaphone, ShoppingCart, Paperclip,
+  Info, Calendar, AlertCircle, Star,
+} from 'lucide-react'
 import { api } from '../api/odoo'
 import { useTeam } from '../context/TeamContext'
 import TaskTree from '../components/TaskTree'
@@ -16,19 +21,19 @@ import {
 } from '../components/ISOConfigs'
 
 const TABS = [
-  { key: 'wbs',          label: 'WBS',          icon: '🗂️'  },
-  { key: 'risks',        label: 'Risques',       icon: '⚠️'  },
-  { key: 'charter',      label: 'Charte',        icon: '📋'  },
-  { key: 'stakeholders', label: 'Parties',       icon: '👥'  },
-  { key: 'resources',    label: 'Ressources',    icon: '👤'  },
-  { key: 'changes',      label: 'Changements',   icon: '🔄'  },
-  { key: 'deliverables', label: 'Livrables',     icon: '✅'  },
-  { key: 'quality',      label: 'Qualité',       icon: '🎯'  },
-  { key: 'lessons',      label: 'Leçons',        icon: '📚'  },
-  { key: 'comms',        label: 'Comm.',         icon: '📢'  },
-  { key: 'procurement',  label: 'Achats',        icon: '🛒'  },
-  { key: 'docs',         label: 'Docs',          icon: '📎'  },
-  { key: 'info',         label: 'Infos',         icon: 'ℹ️'  },
+  { key: 'wbs',          label: 'WBS',          icon: FolderTree    },
+  { key: 'risks',        label: 'Risques',       icon: AlertTriangle },
+  { key: 'charter',      label: 'Charte',        icon: ClipboardList },
+  { key: 'stakeholders', label: 'Parties',       icon: Users         },
+  { key: 'resources',    label: 'Ressources',    icon: User          },
+  { key: 'changes',      label: 'Changements',   icon: RefreshCw     },
+  { key: 'deliverables', label: 'Livrables',     icon: CheckCircle2  },
+  { key: 'quality',      label: 'Qualité',       icon: Target        },
+  { key: 'lessons',      label: 'Leçons',        icon: BookOpen      },
+  { key: 'comms',        label: 'Comm.',         icon: Megaphone     },
+  { key: 'procurement',  label: 'Achats',        icon: ShoppingCart  },
+  { key: 'docs',         label: 'Docs',          icon: Paperclip     },
+  { key: 'info',         label: 'Infos',         icon: Info          },
 ]
 
 export default function ProjectDetail() {
@@ -90,7 +95,7 @@ export default function ProjectDetail() {
   function handleBlocker() {
     if (!blockerText.trim()) return
     const existing = project?.description || ''
-    updateProject.mutate({ description: `<p>🚨 <strong>BLOCAGE:</strong> ${blockerText}</p>${existing}` })
+    updateProject.mutate({ description: `<p><strong>BLOCAGE:</strong> ${blockerText}</p>${existing}` })
     setBlockerText(''); setShowBlocker(false)
   }
 
@@ -98,7 +103,7 @@ export default function ProjectDetail() {
     if (!docLink.trim()) return
     const existing = project?.description || ''
     const title = docTitle.trim() || docLink
-    updateProject.mutate({ description: `${existing}<p>📎 <strong>Doc:</strong> <a href="${docLink}">${title}</a></p>` })
+    updateProject.mutate({ description: `${existing}<p><strong>Doc:</strong> <a href="${docLink}">${title}</a></p>` })
     setDocLink(''); setDocTitle(''); setShowDocLink(false)
   }
 
@@ -151,7 +156,7 @@ export default function ProjectDetail() {
             {project?.date && (
               <span style={{ fontSize: '.7rem', color: isProjectOverdue ? 'var(--danger)' : 'var(--text-muted)',
                 fontWeight: isProjectOverdue ? 700 : 400 }}>
-                📅 {project.date}{isProjectOverdue ? ' ⚠️' : ''}
+                <Calendar size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {project.date}{isProjectOverdue ? <AlertTriangle size={14} style={{ verticalAlign: '-2px', flexShrink: 0, marginLeft: 2 }} color="var(--danger)" /> : ''}
               </span>
             )}
             <span style={{ fontSize: '.7rem', color: completionPct === 100 ? '#16a34a' : 'var(--primary)', fontWeight: 700 }}>
@@ -189,12 +194,12 @@ export default function ProjectDetail() {
         <button onClick={() => { closeAllPanels(); setShowBlocker(b => !b) }}
           style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626',
             borderRadius: 6, padding: '5px 10px', fontSize: '.78rem', cursor: 'pointer', fontWeight: 600 }}>
-          🚨 Blocage
+          <AlertCircle size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Blocage
         </button>
         <button onClick={() => { closeAllPanels(); setShowDocLink(d => !d) }}
           style={{ background: 'var(--bg)', border: '1px solid var(--border)',
             borderRadius: 6, padding: '5px 10px', fontSize: '.78rem', cursor: 'pointer' }}>
-          📎 Doc
+          <Paperclip size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Doc
         </button>
       </div>
 
@@ -211,7 +216,7 @@ export default function ProjectDetail() {
               style={{ background: newTaskPrio === '1' ? '#fef3c7' : 'var(--bg)',
                 border: `1px solid ${newTaskPrio === '1' ? '#f59e0b' : 'var(--border)'}`,
                 borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontSize: '.8rem', whiteSpace: 'nowrap' }}>
-              {newTaskPrio === '1' ? '⭐ Haute' : '○ Normale'}
+              {newTaskPrio === '1' ? <><Star size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} color="#f59e0b" fill="#f59e0b" /> Haute</> : '○ Normale'}
             </button>
             <input type="date" value={newTaskDeadline} onChange={e => setNewTaskDeadline(e.target.value)}
               style={{ flex: 1, padding: '.3rem .5rem', border: '1px solid #c7d2fe', borderRadius: 6, fontSize: '.8rem' }} />
@@ -248,7 +253,7 @@ export default function ProjectDetail() {
 
       {showBlocker && (
         <Panel color="#fef2f2" border="#fecaca">
-          <PanelTitle color="#dc2626">🚨 Signaler un blocage projet</PanelTitle>
+          <PanelTitle color="#dc2626"><AlertCircle size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Signaler un blocage projet</PanelTitle>
           <input type="text" value={blockerText} onChange={e => setBlockerText(e.target.value)}
             placeholder="Cause du blocage, décalage calendrier, dépendance bloquante…"
             style={{ width: '100%', padding: '.5rem', border: '1px solid #fecaca', borderRadius: 6,
@@ -261,7 +266,7 @@ export default function ProjectDetail() {
 
       {showDocLink && (
         <Panel color="#f0fdf4" border="#bbf7d0">
-          <PanelTitle color="#16a34a">📎 Lien livrable / document</PanelTitle>
+          <PanelTitle color="#16a34a"><Paperclip size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Lien livrable / document</PanelTitle>
           <input type="text" value={docTitle} onChange={e => setDocTitle(e.target.value)}
             placeholder="Titre (facultatif)"
             style={{ width: '100%', padding: '.4rem .5rem', border: '1px solid #bbf7d0', borderRadius: 6,
@@ -289,7 +294,7 @@ export default function ProjectDetail() {
               borderBottom: tab === t.key ? '2.5px solid var(--primary)' : '2.5px solid transparent',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
             }}>
-            <span style={{ fontSize: '.9rem' }}>{t.icon}</span>
+            <span style={{ fontSize: '.9rem' }}><t.icon size={16} /></span>
             {t.label}
           </button>
         ))}
@@ -415,15 +420,15 @@ export default function ProjectDetail() {
           <>
             <div className="section-title">Livrables & Documents (ISO 21500 §4.3.11)</div>
             <div className="card">
-              {[...((project?.description || '').matchAll(/<p>📎 <strong>Doc:<\/strong> <a href="([^"]+)">([^<]+)<\/a><\/p>/g))].length === 0
+              {[...((project?.description || '').matchAll(/<p><strong>Doc:<\/strong> <a href="([^"]+)">([^<]+)<\/a><\/p>/g))].length === 0
                 ? <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem', fontSize: '.85rem' }}>
-                    Aucun document lié. Cliquez sur "📎 Doc" pour ajouter.
+                    Aucun document lié. Cliquez sur "Doc" pour ajouter.
                   </div>
-                : [...((project?.description || '').matchAll(/<p>📎 <strong>Doc:<\/strong> <a href="([^"]+)">([^<]+)<\/a><\/p>/g))]
+                : [...((project?.description || '').matchAll(/<p><strong>Doc:<\/strong> <a href="([^"]+)">([^<]+)<\/a><\/p>/g))]
                     .map((m, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '.5rem',
                         padding: '.6rem 0', borderBottom: '1px solid var(--border)' }}>
-                        <span style={{ fontSize: '1.1rem' }}>📎</span>
+                        <span style={{ fontSize: '1.1rem' }}><Paperclip size={18} style={{ verticalAlign: '-2px', flexShrink: 0 }} /></span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <a href={m[1]} target="_blank" rel="noopener noreferrer"
                             style={{ color: 'var(--primary)', fontWeight: 600, fontSize: '.9rem' }}>

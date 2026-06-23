@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import { Clock } from 'lucide-react'
 import { api } from '../api/odoo'
 import { useTeam } from '../context/TeamContext'
 
@@ -46,7 +47,7 @@ export default function QuickTimelog({ task, projectId, onClose }) {
       borderRadius: 10, padding: '.75rem', margin: '.25rem 0 .25rem 20px',
     }}>
       <div style={{ fontSize: '.8rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '.5rem' }}>
-        ⏱ Logger du temps · {active.name.split(' ')[0]}
+        <Clock size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Logger du temps · {active.name.split(' ')[0]}
       </div>
       <div className="chip-group" style={{ marginBottom: '.4rem' }}>
         {CHIPS.map(h => (
