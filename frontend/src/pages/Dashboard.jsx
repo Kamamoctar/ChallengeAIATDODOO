@@ -137,6 +137,7 @@ export default function Dashboard() {
           todayEntries={todayEntries} loadingToday={loadingToday}
           qkToday={['timesheets-today', active.id]}
           myProjects={myProjects}
+          myTasks={myTasks} userId={userId} projects={projects}
         />
       )}
       {tab === 'chef' && (
@@ -160,16 +161,63 @@ export default function Dashboard() {
 }
 
 /* ─── TAB : MOI (Personnel) ────────────────────────────────────── */
+/* ─── Cockpit KPI ─────────────────────────────────────────────── */
+function CockpitBar({ todayH, weekTotal, myTasks, projects, userId }) {
+  const today = new Date().toISOString().split('T')[0]
+  const overdueCount = myTasks.filter(t => t.date_deadline && t.date_deadline < today).length
+  const myProjCount  = projects.filter(p =>
+    Array.isArray(p.user_id) && p.user_id[0] === userId &&
+    parsePhase(p.description) !== 'Closing'
+  ).length
+  const weekPct = Math.round((weekTotal / 40) * 100)
+
+  const todayColor  = todayH >= 6 ? '#16a34a' : todayH >= 3 ? '#f59e0b' : '#ef4444'
+  const weekColor   = weekPct >= 80 ? '#16a34a' : weekPct >= 50 ? '#f59e0b' : '#ef4444'
+  const overdueColor = overdueCount > 0 ? '#ef4444' : '#16a34a'
+
+  const tile = (value, label, sub, color, icon) => (
+    <div style={{
+      background: 'var(--surface)', borderRadius: 12,
+      padding: '.75rem 1rem', borderTop: `3px solid ${color}`,
+      boxShadow: 'var(--shadow)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '.35rem', marginBottom: '.15rem' }}>
+        <span style={{ fontSize: '.85rem' }}>{icon}</span>
+        <span style={{ fontSize: '.62rem', fontWeight: 700, textTransform: 'uppercase',
+          letterSpacing: '.05em', color: 'var(--text-muted)' }}>{label}</span>
+      </div>
+      <div style={{ fontSize: '1.55rem', fontWeight: 800, color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+        {value}
+      </div>
+      <div style={{ fontSize: '.65rem', color: 'var(--text-muted)', marginTop: '.2rem' }}>{sub}</div>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '.65rem', marginBottom: '1rem' }}>
+      {tile(`${todayH.toFixed(1)}h`, "Aujourd'hui", `/ 8h`, todayColor, '🕐')}
+      {tile(`${weekPct}%`, 'Cette semaine', `${weekTotal.toFixed(1)}h / 40h`, weekColor, '📅')}
+      {tile(overdueCount, 'En retard', overdueCount > 0 ? 'tâche(s) dépassées' : 'Aucune', overdueColor, '⚠️')}
+      {tile(myProjCount, 'Mes projets', 'projets actifs', 'var(--primary)', '📁')}
+    </div>
+  )
+}
+
+/* ─── TAB : MOI (Personnel) ────────────────────────────────────── */
 function PersonalTab({
   todayH, weekTotal, avgPerDay, overtimeH, weekOvertimeH,
   dailyPct, overtimePct, isOverToday,
   weekEntries, compareEntries, prevWeekTotal, active, compare,
   todayEntries, loadingToday, qkToday, myProjects = [],
+  myTasks = [], userId = 0, projects = [],
 }) {
   const weekTrend = prevWeekTotal > 0 ? weekTotal - prevWeekTotal : null
   const now = new Date()
   return (
     <main className="page">
+      <CockpitBar todayH={todayH} weekTotal={weekTotal}
+        myTasks={myTasks} projects={projects} userId={userId} />
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '.75rem', marginBottom: '1rem' }}>
         <StatCard value={`${todayH.toFixed(1)}h`} label="Aujourd'hui"
           sub={isOverToday ? <><Flame size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> +{overtimeH.toFixed(1)}h overtime</> : `/ ${DAILY_GOAL}h`}

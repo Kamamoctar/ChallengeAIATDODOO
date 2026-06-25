@@ -34,6 +34,7 @@ export const api = {
   addDependency: (id, predecessorId) => request('POST', `/api/tasks/${id}/depend-on`, { predecessor_id: predecessorId }),
   removeDependency: (id, predecessorId) => request('POST', `/api/tasks/${id}/undepend`, { predecessor_id: predecessorId }),
   bulkSchedule: (items) => request('POST', `/api/tasks/bulk-schedule`, { items }),
+  getManagedTasks: (userId) => request('GET', `/api/tasks/managed?user_id=${userId}`),
   getIndependentTasks: (userId) => request('GET', `/api/tasks/independent?user_id=${userId}`),
   getTask: (id) => request('GET', `/api/tasks/${id}`),
   createTask: (data) => request('POST', '/api/tasks', data),

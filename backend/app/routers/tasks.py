@@ -51,6 +51,22 @@ async def get_independent_tasks(user_id: int = Query(...)):
     )
 
 
+@router.get("/managed")
+async def get_managed_tasks(user_id: int = Query(...)):
+    """Toutes les tâches des projets dont user_id est le gestionnaire."""
+    return await gateway.search_read(
+        "project.task",
+        domain=[
+            ["project_id.user_id", "=", user_id],
+            ["stage_id.fold", "=", False],
+            ["parent_id", "=", False],
+        ],
+        fields=TASK_FIELDS,
+        limit=100,
+        order="date_deadline asc",
+    )
+
+
 @router.get("/{task_id}")
 async def get_task(task_id: int):
     results = await gateway.read("project.task", [task_id], TASK_FIELDS)

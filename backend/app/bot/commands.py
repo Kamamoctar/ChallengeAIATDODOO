@@ -64,7 +64,8 @@ async def cmd_aide() -> str:
         "/modifier &lt;id&gt; &lt;heures&gt; — Modifier une entrée\n"
         "/supprimer &lt;id&gt; — Supprimer une entrée\n\n"
         "<b>📋 Tâches</b>\n"
-        "/taches — Mes tâches ouvertes\n\n"
+        "/taches — Mes tâches ouvertes\n"
+        "/alertes — Tâches urgentes et en retard 🔔\n\n"
         "<b>📁 Projets</b>\n"
         "/projets — Liste des projets\n"
         "/portefeuille — Projets avec phases ISO\n"
@@ -583,3 +584,50 @@ async def handle_log(text: str, employee_id: int) -> str:
     if parsed.confidence < 0.7:
         confirm += f"\n\n<i>Projet trouvé par approximation — confiance {parsed.confidence:.0%}</i>"
     return confirm
+
+# ─── /alertes ────────────────────────────────────────────────────────────────
+
+async def cmd_alertes(employee_id: int, res_user_id: int) -> str:
+    if not res_user_id:
+        return "Votre identifiant Odoo n'est pas configuré. Contactez l'administrateur."
+
+    today_iso   = date.today().isoformat()
+    in_3d_iso   = (date.today() + timedelta(days=3)).isoformat()
+    name        = settings.employee_name(employee_id).split()[0]
+
+    tasks = await gateway.search_read(
+        "project.task",
+        domain=[
+            ["user_ids", "in", [res_user_id]],
+            ["stage_id.fold", "=", False],
+            ["date_deadline", "!=", False],
+        ],
+        fields=["name", "date_deadline", "project_id"],
+        limit=60,
+        order="date_deadline asc",
+    )
+
+    overdue = [t for t in tasks if t["date_deadline"] < today_iso]
+    urgent  = [t for t in tasks if today_iso <= t["date_deadline"] <= in_3d_iso]
+
+    lines = [f"🔔 <b>Alertes — {name}</b>\n"]
+
+    if overdue:
+        lines.append(f"🔴 <b>En retard ({len(overdue)})</b>")
+        for t in overdue[:5]:
+            delta = (date.today() - date.fromisoformat(t["date_deadline"])).days
+            proj  = t["project_id"][1] if t.get("project_id") else "?"
+            lines.append(f"  • {t['name']} <i>({delta}j, {proj})</i>")
+        if len(overdue) > 5:
+            lines.append(f"  … et {len(overdue) - 5} autre(s)")
+
+    if urgent:
+        lines.append(f"\n🟡 <b>Dans les 3 jours ({len(urgent)})</b>")
+        for t in urgent[:5]:
+            proj = t["project_id"][1] if t.get("project_id") else "?"
+            lines.append(f"  • {t['name']} — 📅 {t['date_deadline']} <i>({proj})</i>")
+
+    if not overdue and not urgent:
+        lines.append("✅ Aucune tâche urgente ou en retard dans les 3 prochains jours !")
+
+    return "\n".join(lines)

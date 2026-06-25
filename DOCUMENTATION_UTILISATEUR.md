@@ -1,7 +1,7 @@
 # Documentation Utilisateur
 # ATD — Application de Gestion de Projet
 
-**Version :** 1.1  
+**Version :** 1.2  
 **Date :** Juin 2026  
 **Équipe :** ATD  
 **Contact :** kamamoctar@gmail.com
@@ -18,7 +18,7 @@
 6. [Gestion des projets](#6-gestion-des-projets)
 7. [Fiche projet et conformité ISO 21500](#7-fiche-projet-et-conformité-iso-21500)
 8. [Saisie de temps](#8-saisie-de-temps)
-9. [Timer de focus](#9-timer-de-focus)
+9. [Timer Pomodoro](#9-timer-pomodoro)
 10. [Historique et export](#10-historique-et-export)
 11. [Recherche globale](#11-recherche-globale)
 12. [Bot Telegram](#12-bot-telegram)
@@ -36,7 +36,7 @@ ATD Gestion de Projet est une application web progressive (PWA) conçue pour les
 
 - **Saisir et suivre le temps** passé sur chaque projet en temps réel
 - **Gérer les projets** selon la norme internationale **ISO 21500**
-- **Visualiser les indicateurs clés** à travers un tableau de bord multi-niveaux
+- **Visualiser les indicateurs clés** à travers un tableau de bord multi-niveaux avec cockpit KPI
 - **Communiquer avec l'équipe** via un bot Telegram intégré
 
 L'application se synchronise automatiquement avec **Odoo** (ERP de l'organisation) et peut être installée sur mobile comme une application native.
@@ -83,18 +83,28 @@ Le tableau de bord est la page d'accueil de l'application. Il propose **trois on
 
 Destiné à chaque membre de l'équipe pour suivre sa propre activité.
 
+#### Cockpit KPI
+
+En haut de l'onglet, quatre tuiles colorées offrent une vue instantanée de l'activité :
+
+| Tuile | Valeur affichée | Code couleur |
+|---|---|---|
+| **Aujourd'hui** | Heures saisies ce jour / 8h | Vert ≥ 6h · Orange ≥ 3h · Rouge < 3h |
+| **Cette semaine** | Total heures + % de l'objectif 40h | Vert ≥ 80% · Orange ≥ 50% · Rouge < 50% |
+| **En retard** | Nombre de tâches dont la deadline est dépassée | Rouge si > 0 · Vert si aucune |
+| **Mes projets** | Nombre de projets actifs dont vous êtes gestionnaire | Bleu |
+
+#### Indicateurs détaillés
+
 | Indicateur | Description |
 |---|---|
-| **Aujourd'hui** | Nombre d'heures saisies ce jour |
-| **Cette semaine** | Total des heures de la semaine en cours + tendance vs semaine précédente (▲▼) |
+| **Cette semaine** | Total des heures + tendance vs semaine précédente (▲▼) |
 | **Moy./jour** | Moyenne d'heures sur les jours travaillés |
 | **Objectif jour** | Progression vers les 8h quotidiennes |
 
 La **barre de progression** du jour devient orange lorsque les 8h sont dépassées, signalant les heures supplémentaires.
 
 Le graphique en barres montre la répartition des heures sur les 7 derniers jours. Le graphique circulaire montre la répartition du temps par projet sur 7 jours.
-
-En bas de page se trouvent les entrées de temps du jour en cours, modifiables individuellement.
 
 ### 3.2 Onglet « Chef de Projet » — Vue opérationnelle
 
@@ -127,7 +137,7 @@ Destiné au management pour une vue d'ensemble du portefeuille.
 
 ## 4. Focus du jour
 
-La page Focus permet de définir jusqu'à **3 tâches prioritaires** pour la journée.
+La page Focus permet de définir jusqu'à **3 tâches prioritaires** pour la journée et de consulter l'ensemble de vos tâches actives.
 
 ### 4.1 Ajouter une tâche au focus
 
@@ -136,17 +146,38 @@ La page Focus permet de définir jusqu'à **3 tâches prioritaires** pour la jou
 3. Sélectionner la tâche souhaitée
 4. Maximum 3 tâches par jour
 
+Le bouton **« ✨ Suggérer »** remplit automatiquement le focus avec les 3 tâches les plus urgentes.
+
 ### 4.2 Démarrer le timer sur une tâche
 
-Appuyer sur le bouton **« ▶ Démarrer timer »** de la tâche. Le timer apparaît en bas de l'écran et commence à décompter. Une seule tâche peut être chronométrée à la fois.
+Appuyer sur le bouton **« ▶ Démarrer timer »** de la tâche. Le timer Pomodoro apparaît en bas de l'écran et commence le décompte de 25 minutes. Une seule tâche peut être chronométrée à la fois.
 
 ### 4.3 Saisir le temps manuellement
 
 Appuyer sur **« ⏱ Log »** à côté d'une tâche pour saisir manuellement une durée sans utiliser le timer.
 
-### 4.4 Retirer une tâche du focus
+### 4.4 Marquer une tâche comme terminée
+
+Appuyer sur le bouton **✓** à gauche d'une tâche dans la section « Mes tâches » pour la passer à l'étape « Terminée » dans Odoo. La tâche disparaît de la liste et est retirée du focus si elle s'y trouvait.
+
+### 4.5 Retirer une tâche du focus
 
 Appuyer sur le bouton **« ✕ »** à droite de la tâche. La tâche reste dans Odoo, elle est simplement retirée de la vue Focus du jour.
+
+### 4.6 Filtre « En cours » et « Toutes »
+
+Par défaut, la liste **n'affiche que les tâches actives** (celles dont le stage Odoo indique qu'elles sont en cours de traitement). Les tâches encore en file d'attente (« À faire », « Backlog »…) sont masquées pour éviter le bruit.
+
+Un bouton toggle en haut à droite de chaque section permet de basculer :
+
+- **⚡ En cours** (défaut) — affiche uniquement les tâches actives + les tâches en retard (quel que soit leur stage)
+- **📋 Toutes** — affiche l'intégralité des tâches assignées
+
+### 4.7 Section « Tâches de mes projets »
+
+En dessous de « Mes tâches par priorité », une deuxième section liste automatiquement les tâches ouvertes de **tous les projets dont vous êtes gestionnaire** (chef de projet Odoo). Cette liste est dédupliquée par rapport à « Mes tâches » : une tâche déjà assignée à vous n'apparaît pas deux fois.
+
+Chaque tâche indique si elle est **assignée** à quelqu'un ou **non assignée** (indicateur orange), ce qui permet de repérer rapidement les tâches en attente d'attribution.
 
 ---
 
@@ -166,7 +197,11 @@ La vue Kanban (**icône 📋 dans la navigation**) présente toutes les tâches 
 2. Choisir l'étape cible dans le menu déroulant
 3. La tâche se déplace vers la nouvelle colonne et la modification est enregistrée dans Odoo
 
-### 5.3 Codes couleur des cartes
+### 5.3 Marquer une tâche comme terminée
+
+Dans chaque carte tâche, le bouton **✓** permet de déplacer directement la tâche vers l'étape « Terminée » sans passer par le menu de déplacement.
+
+### 5.4 Codes couleur des cartes
 
 | Bordure | Signification |
 |---|---|
@@ -185,15 +220,20 @@ La page **Projets** (icône 📁) affiche tous les projets. Un filtre de recherc
 Chaque projet affiche :
 - Le **nom** du projet
 - La **phase ISO 21500** actuelle (badge coloré)
-- La **deadline** si définie, en rouge si dépass��e
+- La **deadline** si définie, en rouge si dépassée
 - Un indicateur **« En retard »** si la deadline est passée
 
-### 6.2 Projets actifs et archivés
+### 6.2 Filtres de la liste
 
-- **Vue Actifs** (défaut) : projets en phases Initialisation, Planification, Réalisation ou Contrôle
-- **Vue Archivés** (bouton 🗄) : projets en phase Clôture
+Trois boutons dans la barre de commandes permettent de filtrer l'affichage :
 
-Appuyer sur le bouton **« 🗄 Archivés »** pour basculer entre les deux vues. Appuyer sur **« 📂 Actifs »** pour revenir à la vue par défaut.
+| Bouton | Effet |
+|---|---|
+| **👤 Mes projets** | N'affiche que les projets dont vous êtes le gestionnaire (chef de projet dans Odoo) |
+| **🗄 Archivés** | Affiche les projets en phase Clôture |
+| **📂 Actifs** | Revient à la vue des projets actifs |
+
+> Ces filtres sont indépendants et cumulables : « Mes projets » + « Actifs » montre uniquement vos projets en cours.
 
 ### 6.3 Créer un nouveau projet
 
@@ -236,17 +276,17 @@ Le score est calculé automatiquement à partir de la présence des 11 élément
 | Onglet | Contenu | Référence ISO 21500 |
 |---|---|---|
 | **WBS** | Structure de découpage du travail, arborescence des tâches numérotées, jalons | §4.3.3 |
-| **Phases** | Progression du projet sur les 5 phases ISO (cliquer pour avancer) | §4.3.1–2 |
-| **Charte** | Document de charte projet (objectifs, périmètre, budget, dates, risques, critères de succès) | §4.3.1 |
-| **Parties prenantes** | Registre des parties prenantes (influence, intérêt, canal de communication) | §4.3.9 |
-| **Risques** | Registre des risques (probabilité × impact, niveau, traitement, propriétaire) | §4.3.28 |
-| **Livrables** | Registre des livrables (critères d'acceptation, responsable, statut) | §4.3.11 |
-| **Modifications** | Journal des demandes de modification (type, impact, statut) | §4.3.8 |
-| **Leçons** | Registre des leçons apprises (catégorie, impact, recommandation) | §4.3.7 |
-| **Communication** | Plan de communication (audience, canal, fréquence) | §4.3.37–39 |
-| **Achats** | Registre des achats et contrats (fournisseur, montant, statut) | §4.3.40–42 |
+| **Risques** | Registre des risques et problèmes (probabilité × impact, lifecycle, tâche liée) | §4.3.28 |
+| **Charte** | Document de charte projet (objectifs, périmètre, budget, dates, critères de succès) | §4.3.1 |
+| **Parties prenantes** | Registre des parties prenantes (influence, intérêt, canal) | §4.3.9 |
 | **Ressources** | Planification des ressources humaines (rôle, disponibilité, charge) | §4.3.16–17 |
+| **Changements** | Journal des demandes de modification (type, impact, statut, **tâche WBS liée**) | §4.3.8 |
+| **Livrables** | Registre des livrables (critères, responsable, statut, **tâche WBS liée**) | §4.3.11 |
 | **Qualité** | Plan qualité (indicateurs, méthodes de mesure, valeurs cibles) | §4.3.31–33 |
+| **Leçons** | Registre des leçons apprises (catégorie, impact, **tâche WBS liée**) | §4.3.7 |
+| **Comm.** | Plan de communication (audience, canal, fréquence) | §4.3.37–39 |
+| **Achats** | Registre des achats et contrats (fournisseur, montant, statut) | §4.3.40–42 |
+| **Docs** | Liens vers les documents externes du projet | — |
 | **Infos** | Informations générales du projet (description, dates, responsable) | — |
 
 ### 7.3 Structure de découpage du travail (WBS)
@@ -273,10 +313,56 @@ Chaque risque est évalué selon la matrice **Probabilité × Impact** :
 
 | Niveau | Score | Couleur |
 |---|---|---|
-| Critique | ≥ 16 | Rouge |
-| Élevé | 9–15 | Orange |
-| Moyen | 4–8 | Jaune |
-| Faible | 1–3 | Vert |
+| Critique | ≥ 7 | Rouge |
+| Élevé | 4–6 | Orange |
+| Moyen | 2–3 | Jaune |
+| Faible | 1 | Vert |
+
+#### Cycle de vie d'un risque
+
+Chaque risque ou problème suit un cycle de vie formalisé :
+
+| Statut | Signification |
+|---|---|
+| **Ouvert** | Risque identifié, en surveillance |
+| **En traitement** | Plan de mitigation en cours |
+| **Déclenché** | Le risque s'est matérialisé (date enregistrée automatiquement) |
+| **Clos** | Risque résolu (date de résolution et délai enregistrés) |
+
+**Boutons d'action rapide dans le tableau :**
+- **🔴 Arrivé** — Marque le risque comme déclenché et enregistre la date du jour
+- **✅ Réglé** — Clôture le risque et affiche le délai de résolution (Δ Xj)
+
+#### Liaison avec une tâche WBS
+
+Lors de la création ou modification d'un risque, le champ **« Tâche WBS liée »** propose une liste déroulante de toutes les tâches du projet. La liaison est affichée dans le tableau avec l'icône 🔗.
+
+### 7.6 Pré-remplissage automatique des formulaires ISO
+
+Lors de l'ouverture du formulaire **« + Ajouter »** dans n'importe quel onglet ISO, les champs suivants sont **pré-remplis automatiquement** avec le contexte courant :
+
+| Champ | Valeur pré-remplie |
+|---|---|
+| Demandeur / Responsable / Propriétaire | Nom du membre actif connecté |
+| Date de la demande / Prochaine occurrence | Date du jour |
+| Statut | Valeur initiale appropriée (« Soumis », « En cours », « Conforme »…) |
+| Date cible (livrables) | Date de fin du projet |
+
+Toutes ces valeurs sont **modifiables** avant de valider. Le pré-remplissage ne s'applique pas à l'édition d'entrées existantes.
+
+### 7.7 Liaisons inter-onglets — Tâche WBS associée
+
+Les onglets **Livrables**, **Changements** et **Leçons apprises** proposent désormais un champ **« Tâche WBS liée »** qui permet de référencer la tâche WBS du projet directement reliée à l'entrée.
+
+**Comment lier une tâche :**
+1. Ouvrir le formulaire d'ajout ou de modification
+2. Dans le champ « Tâche WBS liée », sélectionner la tâche dans la liste déroulante
+3. La liste affiche toutes les tâches WBS du projet (hors entrées ISO)
+4. Sauvegarder
+
+**Affichage dans le tableau :** les tâches liées sont affichées avec l'icône 🔗 suivie du nom de la tâche. Si aucune tâche n'est liée, la cellule affiche « — ».
+
+> Cette fonctionnalité permet de retrouver facilement quel livrable résulte de quelle tâche, quelle modification concerne quel lot de travail, et quelle leçon provient de quel contexte opérationnel.
 
 ---
 
@@ -302,40 +388,78 @@ Dans l'historique ou le tableau de bord, appuyer sur les icônes **✏️** (mod
 
 ---
 
-## 9. Timer de focus
+## 9. Timer Pomodoro
 
-Le timer permet de chronométrer le temps passé sur une tâche et de créer automatiquement l'entrée de temps à l'arrêt.
+Le timer implémente la **technique Pomodoro** : alternance de sessions de travail de 25 minutes et de pauses courtes, avec enregistrement automatique du temps de travail dans Odoo.
 
-### 9.1 Démarrer le timer
+### 9.1 Démarrer un Pomodoro
 
-Depuis la page **Focus**, appuyer sur **« ▶ Démarrer timer »** sur l'une des trois tâches du focus. Le timer apparaît sous forme de pilule flottante en bas de l'écran.
+Depuis la page **Focus**, appuyer sur **« ▶ Démarrer timer »** sur l'une des trois tâches du focus. La carte Pomodoro apparaît en bas à droite de l'écran.
 
-### 9.2 Pendant le chronomètre
+### 9.2 Structure d'un cycle Pomodoro
 
-La pilule flottante affiche le temps écoulé et les contrôles suivants :
+| Phase | Durée | Déclenchement |
+|---|---|---|
+| **Travail (focus)** | 25 minutes | Manuel (bouton ▶) |
+| **Pause courte** | 5 minutes | Automatique après chaque Pomodoro |
+| **Pause longue** | 25 minutes | Automatique après le 4ᵉ Pomodoro consécutif |
+
+### 9.3 La carte flottante
+
+La carte affiche en permanence :
+- **4 points de cycle** en haut (remplis = Pomodoros complétés dans le cycle actuel)
+- Un **anneau de progression** SVG qui se vide en temps réel
+- Le **compte à rebours** (MM:SS)
+- Le nom de la **tâche en cours**
+
+### 9.4 Contrôles pendant la phase de travail
 
 | Bouton | Action |
 |---|---|
-| ⏸ | Mettre en pause (le temps de pause n'est PAS compté) |
+| ⏸ Pause | Mettre en pause le décompte (le temps de pause n'est PAS comptabilisé) |
 | ▶ Reprendre | Reprendre après une pause |
-| ■ Stop | Arrêter et enregistrer automatiquement |
+| ■ Stop | Arrêter et enregistrer le temps de travail accumulé dans Odoo |
 | ✕ | Annuler sans enregistrer |
 
-> **Important :** Les pauses ne sont pas comptabilisées dans la durée enregistrée. Seul le temps actif est sauvegardé dans Odoo.
+### 9.5 Transition automatique vers la pause
 
-### 9.3 Arrêt automatique à 45 minutes
+Lorsque les 25 minutes sont écoulées :
+1. Un son d'arpège (montant) retentit pour signaler la fin du Pomodoro
+2. La carte passe en **mode pause** (fond vert)
+3. Le décompte de pause démarre automatiquement
+4. Une notification toast confirme le nombre de Pomodoros complétés
 
-Après 45 minutes de focus continu, le timer s'arrête automatiquement et propose une **pause**. Un panneau s'affiche avec trois options :
+**Contrôles pendant la pause :**
 
-- **▶ Continuer** — Reprendre le chronomètre
-- **■ Stop & enregistrer** �� Enregistrer les 45 minutes et terminer
-- **✕** — Fermer le panneau (le timer reste en pause)
+| Bouton | Action |
+|---|---|
+| ⏸ / ▶ | Mettre en pause ou reprendre la pause |
+| ⏭ | Sauter la pause et démarrer immédiatement le Pomodoro suivant |
+| ■ (fantôme) | Arrêter et enregistrer (fin de session) |
 
-### 9.4 Enregistrement automatique
+### 9.6 Fin de la pause
 
-À l'arrêt, l'entrée de temps est créée automatiquement dans Odoo sans confirmation supplémentaire. Une notification de succès confirme la durée enregistrée.
+À la fin du décompte de pause :
+- Un son doux retentit
+- La carte affiche ☀️ **« Prêt pour le suivant ? »**
+- Deux boutons s'affichent : **▶ Démarrer** (Pomodoro suivant) et **■ Stop** (fin de session)
 
-Si la durée est inférieure à 1 minute, aucune entrée n'est créée et un message d'information s'affiche.
+### 9.7 Enregistrement du temps
+
+Seul le **temps de travail actif** est enregistré dans Odoo (les pauses ne sont pas comptées). Le cumul est calculé sur l'ensemble des Pomodoros d'une session :
+
+- Si la durée totale est **inférieure à 1 minute**, aucune entrée n'est créée
+- L'entrée est créée au projet et à la tâche du focus, avec la date du jour
+- En cas de perte de réseau, l'entrée est mise en file d'attente hors-ligne
+
+### 9.8 Sons
+
+| Événement | Son |
+|---|---|
+| Fin d'un Pomodoro (25 min) | Arpège montant Do-Mi-Sol-Do (4 notes) |
+| Fin d'une pause | Deux tons descendants doux |
+
+> Les sons utilisent l'API Web Audio du navigateur. Ils nécessitent une interaction préalable de l'utilisateur (clic) pour se déclencher, conformément aux politiques des navigateurs modernes.
 
 ---
 
@@ -362,7 +486,7 @@ La page **Historique** (icône 📅) affiche les 14 derniers jours d'activité, 
 | Projet | Nom du projet |
 | Tâche | Nom de la tâche (si renseignée) |
 | Description | Description de l'activité |
-| Heures | Dur��e en heures (ex : 1.50) |
+| Heures | Durée en heures (ex : 1.50) |
 
 > **Note :** Le fichier est encodé en UTF-8 avec BOM pour une compatibilité optimale avec Microsoft Excel.
 
@@ -392,7 +516,11 @@ Commencer à taper dès l'ouverture. Les résultats s'affichent immédiatement. 
 
 Le bot Telegram permet d'interagir avec l'application directement depuis Telegram, sans ouvrir le navigateur.
 
-### 12.1 Commandes disponibles
+### 12.1 Menu interactif
+
+Après `/start` ou `/menu`, un **clavier interactif** s'affiche avec des boutons pour toutes les fonctions principales. Il suffit de taper sur un bouton pour exécuter la commande sans saisir de texte.
+
+### 12.2 Commandes disponibles
 
 #### Informations générales (sans compte lié)
 
@@ -414,12 +542,33 @@ Le bot Telegram permet d'interagir avec l'application directement depuis Telegra
 | `/semaine` | Bilan hebdomadaire par projet avec barre de progression |
 | `/mois` | Bilan mensuel avec répartition par projet et pourcentages |
 | `/taches` | Mes tâches ouvertes groupées par projet |
+| `/alertes` | Mes tâches **urgentes** (dans les 3 jours) et **en retard** |
 | `/recap` | Récapitulatif journalier complet, formaté pour partage en réunion |
 | `/log Xh Projet - description` | Créer une entrée de temps |
 | `/modifier <id> <heures>` | Modifier la durée d'une entrée (ID obtenu via /aujourd'hui) |
 | `/supprimer <id>` | Supprimer une entrée de temps |
 
-### 12.2 Saisie en langage naturel
+### 12.3 Commande /alertes
+
+La commande `/alertes` retourne en un seul message la liste des tâches critiques :
+
+- **🔴 En retard** — tâches dont la deadline est passée
+- **🟡 Dans les 3 jours** — tâches dont la deadline est dans 1, 2 ou 3 jours
+
+Exemple de réponse :
+
+```
+🔔 Alertes pour Moctar
+
+🔴 En retard (2)
+  · Rédaction cahier des charges · 📅 2026-06-20
+  · Revue de conception · 📅 2026-06-22
+
+🟡 Dans les 3 jours (1)
+  · Livraison prototype · 📅 2026-06-27
+```
+
+### 12.4 Saisie en langage naturel
 
 Le bot comprend le langage naturel pour la saisie de temps. Exemples de messages reconnus :
 
@@ -431,7 +580,7 @@ j'ai travaillé 3h sur Projet Alpha hier
 
 Le bot identifie automatiquement le projet par correspondance approximative (même si le nom n'est pas parfaitement exact).
 
-### 12.3 Commande /log détaillée
+### 12.5 Commande /log détaillée
 
 ```
 /log 2h Projet Alpha - description de l'activité
@@ -442,29 +591,6 @@ Le bot identifie automatiquement le projet par correspondance approximative (mê
 **Formats de durée acceptés :** `2h`, `2.5h`, `30min`, `1h30min`
 
 **Formats de date acceptés :** `hier`, `avant-hier`, `lundi`, `2026-06-15`, `15/06`
-
-### 12.4 Exemple de /semaine
-
-```
-📊 Bilan semaine
-
-• 12.5h — Projet Alpha
-• 8.0h — Projet Beta
-• 4.0h — Projet Gamma
-
-Total : 24.5h / 40h
-⏳ 15.5h pour atteindre l'objectif
-```
-
-### 12.5 Exemple de /portefeuille
-
-```
-📂 Portefeuille projets
-
-• ⚙️ Réalisation — Projet Alpha · 📅 2026-07-15
-• 📋 Planning — Projet Beta · 📅 2026-08-30
-• ✅ Clôture — Projet Gamma · 📅 2026-05-01 ⚠️
-```
 
 ---
 
@@ -482,7 +608,7 @@ L'application détecte automatiquement la perte de connexion réseau. Si le time
 Dès que la connexion réseau est rétablie :
 1. L'application détecte automatiquement le retour du réseau
 2. Toutes les entrées en attente sont **synchronisées vers Odoo**
-3. Un message de confirmation affiche le nombre d'entrées synchronis��es
+3. Un message de confirmation affiche le nombre d'entrées synchronisées
 4. Le badge disparaît
 
 > **Important :** La synchronisation est transparente et ne nécessite aucune action manuelle.
@@ -497,8 +623,8 @@ L'application propose un **mode sombre** qui adapte toute l'interface à une pal
 
 Pour basculer entre le mode clair et le mode sombre :
 
-- **Sur bureau** : cliquez sur le bouton **🌙 Mode sombre** / **☀️ Mode clair** situé en bas de la barre de navigation latérale.
-- **Sur mobile** : appuyez sur le bouton rond **🌙 / ☀️** qui apparaît en bas à gauche de l'écran (au-dessus de la navigation).
+- **Sur bureau** : utilisez le **bouton toggle animé** (soleil ☀️ / lune 🌙) situé en bas de la barre de navigation latérale.
+- **Sur mobile** : appuyez sur le bouton toggle en bas à gauche de l'écran.
 
 ### 14.2 Persistance et détection automatique
 
@@ -520,7 +646,7 @@ Tous les composants utilisent la palette ATD nuit :
 | Bordures | `#d0e4ea` | `#1e3347` |
 | Bleu ATD (boutons) | `#0a4b8b` | `#4a9fd4` (plus clair pour le contraste) |
 
-> Les graphiques recharts, les badges de statut, les tableaux ISO et les formulaires s'adaptent tous automatiquement.
+> Les graphiques, les badges de statut, les tableaux ISO et les formulaires s'adaptent tous automatiquement.
 
 ---
 
@@ -528,9 +654,9 @@ Tous les composants utilisent la palette ATD nuit :
 
 Cette section s'adresse à la personne responsable du déploiement et de la configuration de l'application.
 
-### 14.1 Variables d'environnement — Backend (Render)
+### 15.1 Variables d'environnement — Backend (Render)
 
-Les 12 variables suivantes doivent être configurées dans le service backend sur Render (Dashboard → Service → Environment Variables) :
+Les variables suivantes doivent être configurées dans le service backend sur Render (Dashboard → Service → Environment Variables) :
 
 | Variable | Description | Exemple |
 |---|---|---|
@@ -549,46 +675,55 @@ Les 12 variables suivantes doivent être configurées dans le service backend su
 
 > ⚠️ **Sécurité :** Ces variables ne doivent jamais être partagées ni committées dans Git. Le fichier `.env` local est exclu du dépôt par le fichier `.gitignore`.
 
-### 14.2 Variables d'environnement — Frontend (Vercel)
+### 15.2 Variables d'environnement — Frontend (Vercel)
 
 | Variable | Description | Exemple |
 |---|---|---|
 | `VITE_API_URL` | URL du backend Render | `https://votre-service.onrender.com` |
 | `VITE_EMPLOYEE_A_ID` | ID employé Odoo du membre A | `291` |
 | `VITE_EMPLOYEE_A_NAME` | Nom du membre A | `NAMADOU Moctar` |
+| `VITE_EMPLOYEE_A_USER_ID` | ID utilisateur Odoo du membre A | `187` |
 | `VITE_EMPLOYEE_B_ID` | ID employé Odoo du membre B | `32` |
 | `VITE_EMPLOYEE_B_NAME` | Nom du membre B | `SOSSOU Candide` |
+| `VITE_EMPLOYEE_B_USER_ID` | ID utilisateur Odoo du membre B | `32` |
 
-### 14.3 Configuration du webhook Telegram
+### 15.3 Configuration du webhook Telegram
 
-Après chaque changement de token du bot, enregistrer le nouveau webhook en appelant une seule fois l'URL suivante (remplacer les valeurs entre accolades) :
+Après chaque changement de token du bot, enregistrer le nouveau webhook en appelant une seule fois l'endpoint suivant :
 
 ```
-https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook?url={BACKEND_URL}/webhook/telegram
+POST {BACKEND_URL}/webhook/telegram/setup
 ```
 
-**Exemple :**
-```
-https://api.telegram.org/bot123456:ABC.../setWebhook?url=https://mon-service.onrender.com/webhook/telegram
+Ou via curl :
+```bash
+curl -X POST https://votre-service.onrender.com/webhook/telegram/setup
 ```
 
-### 14.4 Obtenir le Telegram User ID
+Ce endpoint enregistre également toutes les commandes natives dans le menu Telegram (la liste apparaît quand l'utilisateur tape `/`).
+
+### 15.4 Obtenir le Telegram User ID
 
 Pour configurer `TELEGRAM_USER_A` et `TELEGRAM_USER_B`, chaque membre doit :
 1. Ouvrir Telegram et chercher **@userinfobot**
 2. Envoyer le message `/start`
 3. Le bot répond avec votre User ID numérique
 
-### 14.5 Créer un bot Telegram
+### 15.5 Créer ou révoquer un bot Telegram
 
+**Créer un bot :**
 1. Ouvrir Telegram et chercher **@BotFather**
 2. Envoyer `/newbot`
 3. Suivre les instructions (choisir un nom et un nom d'utilisateur)
 4. Le token est affiché à la fin — le copier immédiatement
 
-Pour révoquer un token compromis : envoyer `/revoke` à @BotFather et sélectionner le bot concerné.
+**Révoquer un token compromis :**
+1. Envoyer `/revoke` à @BotFather
+2. Sélectionner le bot concerné
+3. Mettre à jour `TELEGRAM_BOT_TOKEN` dans Render
+4. Appeler `/webhook/telegram/setup` pour ré-enregistrer le webhook
 
-### 14.6 Conformité ISO 21500 — Référence des processus couverts
+### 15.6 Conformité ISO 21500 — Référence des processus couverts
 
 | Processus | § ISO 21500 | Couverture |
 |---|---|---|
@@ -597,15 +732,15 @@ Pour révoquer un token compromis : envoyer `/revoke` à @BotFather et sélectio
 | Structure de découpage | 4.3.3 | ✅ Complet |
 | Ressources humaines | 4.3.16–17 | ✅ Complet |
 | Suivi du temps | 4.3.5 | ✅ Complet |
-| Gestion des risques | 4.3.28 | ✅ Complet |
+| Gestion des risques | 4.3.28 | ✅ Complet + lifecycle + liaison tâche |
 | Plan qualité | 4.3.31–33 | ✅ Complet |
 | Parties prenantes | 4.3.9 | ✅ Complet |
-| Leçons apprises | 4.3.7 | ✅ Complet |
-| Maîtrise des modifications | 4.3.8 | ✅ Complet |
-| Livrables | 4.3.11 | ✅ Complet |
+| Leçons apprises | 4.3.7 | ✅ Complet + liaison tâche |
+| Maîtrise des modifications | 4.3.8 | ✅ Complet + liaison tâche |
+| Livrables | 4.3.11 | ✅ Complet + liaison tâche |
 | Plan de communication | 4.3.37–39 | ✅ Complet |
 | Achats et contrats | 4.3.40–42 | ✅ Complet |
 
 ---
 
-*Document généré le 20 juin 2026 — ATD Gestion de Projet v1.0*
+*Document mis à jour le 25 juin 2026 — ATD Gestion de Projet v1.2*

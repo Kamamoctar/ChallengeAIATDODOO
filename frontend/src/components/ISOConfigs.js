@@ -45,6 +45,7 @@ export const CHANGE_CONFIG = {
     { key: 'impact',         label: 'Impact',         width: 80,  badge: true },
     { key: 'statut',         label: 'Statut',         width: 90,  badge: true },
     { key: 'date_demande',   label: 'Date',           width: 85 },
+    { key: 'tache_concernee', label: 'Tâche', type: 'task_select', width: 130 },
   ],
   fields: [
     { key: 'description',  label: 'Description de la modification', type: 'textarea', placeholder: 'Décrire précisément le changement demandé…', required: true, fullWidth: true },
@@ -53,6 +54,7 @@ export const CHANGE_CONFIG = {
     { key: 'impact',       label: 'Impact estimé',         type: 'select', options: ['Élevé', 'Moyen', 'Faible'] },
     { key: 'statut',       label: 'Statut',                type: 'select', options: ['Soumis', 'En révision', 'Approuvé', 'Rejeté', 'Annulé'] },
     { key: 'date_demande', label: 'Date de la demande',    type: 'date' },
+    { key: 'tache_concernee', label: 'Tâche WBS concernée', type: 'task_select', fullWidth: true },
     { key: 'justification',label: 'Justification / Analyse', type: 'textarea', placeholder: 'Raisons, alternatives analysées…', fullWidth: true },
   ],
 }
@@ -71,6 +73,7 @@ export const DELIVERABLE_CONFIG = {
     { key: 'criteres',     label: 'Critères accep.',  width: 150, maxWidth: 150, wrap: true },
     { key: 'statut',       label: 'Statut',           width: 100, badge: true },
     { key: 'date_cible',   label: 'Date cible',       width: 85 },
+    { key: 'tache_concernee', label: 'Tâche liée',   type: 'task_select', width: 150 },
   ],
   fields: [
     { key: 'nom',          label: 'Nom du livrable',         type: 'text',     placeholder: 'Ex: Rapport d\'analyse, Application V1…', required: true },
@@ -79,6 +82,7 @@ export const DELIVERABLE_CONFIG = {
     { key: 'responsable',  label: 'Responsable',             type: 'text',     placeholder: 'Nom / rôle' },
     { key: 'statut',       label: 'Statut',                  type: 'select',   options: ['Brouillon', 'En cours', 'Soumis', 'Accepté', 'Rejeté'] },
     { key: 'date_cible',   label: 'Date cible',              type: 'date' },
+    { key: 'tache_concernee', label: 'Tâche WBS liée',       type: 'task_select' },
   ],
 }
 
@@ -94,6 +98,7 @@ export const LESSON_CONFIG = {
     { key: 'phase',           label: 'Phase',           width: 100 },
     { key: 'categorie',       label: 'Catégorie',       width: 110 },
     { key: 'impact',          label: 'Impact',          width: 80,  badge: true },
+    { key: 'tache_concernee', label: 'Tâche',          type: 'task_select', width: 130 },
     { key: 'recommandation',  label: 'Recommandation',  width: 200, maxWidth: 200, wrap: true },
   ],
   fields: [
@@ -101,6 +106,7 @@ export const LESSON_CONFIG = {
     { key: 'phase',          label: 'Phase',             type: 'select',   options: ['Initialisation', 'Planification', 'Réalisation', 'Contrôle', 'Clôture', 'Tout le projet'] },
     { key: 'categorie',      label: 'Catégorie',         type: 'select',   options: ['Processus', 'Technique', 'Équipe', 'Communication', 'Risque', 'Budget', 'Autre'] },
     { key: 'impact',         label: 'Impact',            type: 'select',   options: ['Positif', 'Négatif', 'Mixte'] },
+    { key: 'tache_concernee', label: 'Tâche WBS liée',   type: 'task_select' },
     { key: 'description',    label: 'Description détaillée', type: 'textarea', placeholder: 'Que s\'est-il passé ? Pourquoi ?', fullWidth: true },
     { key: 'recommandation', label: 'Recommandation',   type: 'textarea', placeholder: 'Que faire différemment la prochaine fois ?', fullWidth: true },
   ],

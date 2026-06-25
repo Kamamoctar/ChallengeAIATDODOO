@@ -1,18 +1,90 @@
-import { Clock, Brain, Play, Square, Pause, Circle, X, Timer } from 'lucide-react'
-import { useTimer, formatElapsed, POMODORO_CHOICES } from '../context/TimerContext'
+import { Clock, Brain, Play, Square, Pause, Circle, X, Timer, SkipForward } from 'lucide-react'
+import { useTimer, formatCountdown, formatElapsed, POMODORO_CHOICES } from '../context/TimerContext'
 
+// ── SVG circular progress ring ────────────────────────────────────────────────
+function ProgressRing({ progress, isBreak, size = 88 }) {
+  const r = (size - 10) / 2
+  const c = 2 * Math.PI * r
+  const offset = c * (1 - Math.min(1, Math.max(0, progress)))
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
+      style={{ position: 'absolute', inset: 0 }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none"
+        stroke="rgba(255,255,255,.12)" strokeWidth={6} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none"
+        stroke={isBreak ? '#6ee7b7' : 'rgba(255,255,255,.88)'}
+        strokeWidth={6}
+        strokeDasharray={c}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        style={{ transition: 'stroke-dashoffset .7s ease' }} />
+    </svg>
+  )
+}
+
+// ── Pomodoro dots ─────────────────────────────────────────────────────────────
+function PomodoroDots({ count }) {
+  const dots = []
+  for (let i = 0; i < 4; i++) {
+    dots.push(
+      <span key={i} style={{
+        display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+        background: i < (count % 4 || (count > 0 && count % 4 === 0 ? 4 : 0))
+          ? 'rgba(255,255,255,.9)'
+          : 'rgba(255,255,255,.2)',
+        marginRight: 3,
+        transition: 'background .3s',
+      }} />
+    )
+  }
+  return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, marginBottom: '.2rem' }}>{dots}</div>
+}
+
+const BTN = {
+  background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.2)',
+  borderRadius: 8, padding: '6px 10px', color: '#fff',
+  cursor: 'pointer', fontWeight: 700, fontSize: '.78rem',
+  display: 'flex', alignItems: 'center', gap: '.3rem', whiteSpace: 'nowrap',
+}
+const BTN_WHITE = {
+  ...BTN, background: 'rgba(255,255,255,.92)', color: 'var(--primary)',
+  border: 'none', flex: 1, justifyContent: 'center',
+}
+const BTN_GHOST = {
+  background: 'none', border: 'none', color: 'rgba(255,255,255,.5)',
+  cursor: 'pointer', padding: '6px 6px', display: 'flex', alignItems: 'center',
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function FloatingTimer() {
-  const { timer, elapsed, isRunning, isPaused, autoStopped, pomodoros, estimateHours,
-    pomodoroMin, setPomodoroMin, stop, pause, resume, cancel } = useTimer()
+  const {
+    timer, elapsed, remaining, progress,
+    isRunning, isPaused, phase, pomodoroCount, pomodoros, estimateHours,
+    pomodoroMin, setPomodoroMin,
+    stop, pause, resume, cancel, skipBreak,
+  } = useTimer()
 
   if (!isRunning) return null
+
+  const isBreak = phase === 'break'
+  const isBreakDone = isBreak && isPaused
+  const RING_SIZE = 96
+  const doneP = pomodoros || pomodoroCount || 0
 
   // Comparaison au temps estimé de la tâche
   const estimateMin = Math.round((estimateHours || 0) * 60)
   const doneMin = Math.round(elapsed / 60)
   const overEstimate = estimateMin > 0 && doneMin > estimateMin
 
-  if (autoStopped) {
+  const gradient = isBreak
+    ? 'linear-gradient(135deg, #065f46, #059669)'
+    : isPaused
+    ? 'linear-gradient(135deg, #334155, #1e40af)'
+    : 'linear-gradient(135deg, var(--primary), var(--primary-dark))'
+
+  // ── Pomodoro terminé : panneau pause + réglage durée + comparaison estimé ────
+  if (isBreakDone) {
     return (
       <div style={{
         position: 'fixed', bottom: '4.5rem', left: '.75rem', right: '.75rem', zIndex: 200,
@@ -23,7 +95,7 @@ export default function FloatingTimer() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '.35rem' }}>
           <div style={{ fontWeight: 800, fontSize: '.9rem' }}>
             <Timer size={15} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />
-            Pomodoro {pomodoros} terminé !
+            Pomodoro {doneP} terminé !
           </div>
           <span style={{ fontSize: '1.1rem', fontWeight: 800 }}>{formatElapsed(elapsed)}</span>
         </div>
@@ -37,7 +109,7 @@ export default function FloatingTimer() {
           )}
         </div>
         {/* Réglage de la durée du pomodoro */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', marginBottom: '.7rem', fontSize: '.72rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', marginBottom: '.7rem', fontSize: '.72rem', flexWrap: 'wrap' }}>
           <span style={{ opacity: .8 }}>Durée d'un pomodoro :</span>
           {POMODORO_CHOICES.map(m => (
             <button key={m} onClick={() => setPomodoroMin(m)}
@@ -50,7 +122,7 @@ export default function FloatingTimer() {
           ))}
         </div>
         <div style={{ display: 'flex', gap: '.5rem' }}>
-          <button onClick={resume}
+          <button onClick={skipBreak}
             style={{ flex: 1, background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.3)',
               borderRadius: 8, padding: '8px', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: '.8rem' }}>
             <Play size={14} style={{ verticalAlign: '-2px', marginRight: 4, flexShrink: 0 }} />Continuer
@@ -73,58 +145,109 @@ export default function FloatingTimer() {
   return (
     <div style={{
       position: 'fixed', bottom: '4.5rem', right: '.75rem', zIndex: 200,
-      background: isPaused
-        ? 'linear-gradient(135deg, #5a7080, var(--primary-dark))'
-        : 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
-      color: '#fff', borderRadius: 50, padding: '.55rem .9rem',
-      boxShadow: '0 4px 16px rgba(10,75,139,.45)',
-      display: 'flex', alignItems: 'center', gap: '.5rem',
-      fontSize: '.82rem', fontWeight: 700,
-      transition: 'background .3s',
+      background: gradient,
+      color: '#fff', borderRadius: 20, padding: '.85rem 1rem',
+      boxShadow: '0 8px 32px rgba(0,0,0,.35)',
+      width: 210, transition: 'background .4s',
     }}>
-      <span style={{ animation: isPaused ? 'none' : 'pulse 1.5s infinite', display: 'inline-flex' }}>
-        {isPaused
-          ? <Pause size={14} fill="currentColor" />
-          : <Circle size={10} fill="#ef4444" color="#ef4444" />}
-      </span>
-      <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: 46, textAlign: 'center' }}>
-        {formatElapsed(elapsed)}
-      </span>
-      {pomodoros > 0 && (
-        <span title={`${pomodoros} pomodoro(s) accomplis`}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: '.72rem',
-            background: 'rgba(255,255,255,.2)', borderRadius: 12, padding: '1px 7px' }}>
-          <Timer size={12} /> {pomodoros}
-        </span>
-      )}
+
+      {/* Top: pomodoro dots + cycle label */}
+      <div style={{ textAlign: 'center', marginBottom: '.2rem' }}>
+        <PomodoroDots count={pomodoroCount} />
+        <div style={{ fontSize: '.6rem', opacity: .65, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+          {doneP > 0 && `${doneP} pomodoro${doneP > 1 ? 's' : ''} · `}
+          {isBreakDone ? 'pause terminée' : isBreak ? 'pause' : isPaused ? 'en pause' : 'focus'}
+        </div>
+      </div>
+
+      {/* Ring with countdown */}
+      <div style={{ position: 'relative', width: RING_SIZE, height: RING_SIZE, margin: '.3rem auto' }}>
+        <ProgressRing progress={progress} isBreak={isBreak} size={RING_SIZE} />
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{
+            fontSize: '1.45rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+            letterSpacing: '-.02em', lineHeight: 1,
+          }}>
+            {isBreakDone
+              ? '☀️'
+              : formatCountdown(remaining)}
+          </span>
+          {!isBreakDone && (
+            <span style={{ fontSize: '.55rem', opacity: .6, fontWeight: 700, textTransform: 'uppercase', marginTop: 2 }}>
+              {isBreak ? `/ ${(timer?.breakSecs || 300) / 60} min` : `/ ${pomodoroMin || 25} min`}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Task name */}
       {timer?.taskName && (
-        <span style={{ fontSize: '.68rem', opacity: .75, maxWidth: 72,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{
+          textAlign: 'center', fontSize: '.7rem', opacity: .7,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          marginBottom: '.55rem',
+        }}>
           {timer.taskName}
-        </span>
+        </div>
       )}
-      {isPaused
-        ? <button onClick={resume}
-            style={{ background: 'rgba(255,255,255,.2)', border: 'none', borderRadius: 20,
-              padding: '.2rem .55rem', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: '.75rem', whiteSpace: 'nowrap' }}>
-            <Play size={13} style={{ verticalAlign: '-2px', marginRight: 3, flexShrink: 0 }} />Reprendre
+
+      {/* Break-done state */}
+      {isBreakDone ? (
+        <div>
+          <div style={{ textAlign: 'center', fontSize: '.72rem', fontWeight: 700, marginBottom: '.5rem', opacity: .9 }}>
+            Prêt pour le suivant ?
+          </div>
+          <div style={{ display: 'flex', gap: '.4rem' }}>
+            <button onClick={skipBreak} style={BTN_WHITE}>
+              <Play size={13} fill="currentColor" /> Démarrer
+            </button>
+            <button onClick={stop} style={{ ...BTN, flex: 1, justifyContent: 'center' }}>
+              <Square size={13} fill="currentColor" /> Stop
+            </button>
+          </div>
+        </div>
+      ) : isBreak ? (
+        /* Break in progress */
+        <div style={{ display: 'flex', gap: '.4rem' }}>
+          {isPaused
+            ? <button onClick={resume} style={{ ...BTN, flex: 1, justifyContent: 'center' }}>
+                <Play size={13} fill="currentColor" /> Reprendre pause
+              </button>
+            : <button onClick={pause} style={{ ...BTN, flex: 1, justifyContent: 'center' }}>
+                <Pause size={13} fill="currentColor" /> Pause
+              </button>
+          }
+          <button onClick={skipBreak} title="Sauter la pause"
+            style={{ ...BTN, padding: '6px 8px' }}>
+            <SkipForward size={14} />
           </button>
-        : <button onClick={pause}
-            style={{ background: 'rgba(255,255,255,.2)', border: 'none', borderRadius: 20,
-              padding: '.2rem .55rem', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: '.75rem' }}>
-            <Pause size={13} fill="currentColor" />
+          <button onClick={stop} title="Arrêter et enregistrer" style={BTN_GHOST}>
+            <Square size={13} fill="currentColor" color="rgba(255,255,255,.6)" />
           </button>
-      }
-      <button onClick={stop}
-        style={{ background: 'rgba(255,255,255,.2)', border: 'none', borderRadius: 20,
-          padding: '.2rem .55rem', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: '.75rem', whiteSpace: 'nowrap' }}>
-        <Square size={13} fill="currentColor" style={{ verticalAlign: '-2px', marginRight: 3, flexShrink: 0 }} />Stop
-      </button>
-      <button onClick={cancel}
-        style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,.5)',
-          cursor: 'pointer', fontSize: '.75rem', padding: '0 .1rem', display: 'inline-flex', alignItems: 'center' }}>
-        <X size={14} />
-      </button>
+        </div>
+      ) : (
+        /* Work in progress */
+        <div style={{ display: 'flex', gap: '.4rem' }}>
+          {isPaused
+            ? <button onClick={resume} style={BTN_WHITE}>
+                <Play size={13} fill="currentColor" /> Reprendre
+              </button>
+            : <button onClick={pause} style={{ ...BTN, flex: 1, justifyContent: 'center' }}>
+                <Pause size={13} fill="currentColor" /> Pause
+              </button>
+          }
+          <button onClick={stop} style={{ ...BTN, padding: '6px 9px' }}
+            title={`Stop · enregistre ${formatElapsed(elapsed)}`}>
+            <Square size={13} fill="currentColor" />
+          </button>
+          <button onClick={cancel} style={BTN_GHOST} title="Annuler (sans enregistrer)">
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

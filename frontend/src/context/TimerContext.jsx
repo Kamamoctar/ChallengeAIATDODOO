@@ -6,9 +6,12 @@ import { api } from '../api/odoo'
 import { queueAdd } from '../utils/offlineQueue'
 
 const TimerContext = createContext(null)
-const STORAGE_KEY = 'odoo_timer_v2'
-const POMODORO_KEY = 'pomodoro_minutes'
+const STORAGE_KEY      = 'odoo_timer_v3'
+const POMODORO_KEY     = 'pomodoro_minutes'
 export const POMODORO_CHOICES = [5, 15, 25, 50]   // durées proposées (5 = démo rapide)
+const WORK_SECS        = 25 * 60   // 25 min focus (défaut)
+const SHORT_BREAK_SECS = 5  * 60   // 5 min break
+const LONG_BREAK_SECS  = 25 * 60   // 25 min long break (every 4 pomodoros)
 
 function loadTimer() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) } catch { return null }
@@ -19,85 +22,139 @@ function loadPomodoroMin() {
   return POMODORO_CHOICES.includes(v) ? v : 25
 }
 
+// ── Web Audio: ascending C-maj arpeggio on work done, soft two-tone on break done
+function _tone(freq, delayS, durS) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const o = ctx.createOscillator(), g = ctx.createGain()
+    o.connect(g); g.connect(ctx.destination)
+    o.type = 'sine'; o.frequency.value = freq
+    const t0 = ctx.currentTime + delayS
+    g.gain.setValueAtTime(0, t0)
+    g.gain.linearRampToValueAtTime(0.32, t0 + 0.04)
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + durS)
+    o.start(t0); o.stop(t0 + durS)
+  } catch {}
+}
+function playWorkDone()  { [523, 659, 784, 1047].forEach((f, i) => _tone(f, i * 0.20, 0.55)) }
+function playBreakDone() { [880, 660].forEach((f, i) => _tone(f, i * 0.28, 0.50)) }
+
+// ── elapsed helpers ───────────────────────────────────────────────────────────
+// workMs: accumulated work time (for timesheet); not updated during break
+// breakMs: accumulated break time; resets each break phase
+function computeElapsedSecs(t) {
+  if (!t) return 0
+  const base = t.phase === 'break' ? (t.breakMs || 0) : (t.workMs || 0)
+  return Math.floor((base + (t.paused || !t.lastStart ? 0 : Date.now() - t.lastStart)) / 1000)
+}
+
+// ── TimerProvider ─────────────────────────────────────────────────────────────
 export function TimerProvider({ children }) {
   const qc = useQueryClient()
-  const [timer, setTimer] = useState(loadTimer)
-  const [elapsed, setElapsed] = useState(0)
-  const [autoStopped, setAutoStopped] = useState(false)
+  const [timer, setTimer]   = useState(loadTimer)
+  const [elapsed, setElapsed] = useState(() => computeElapsedSecs(loadTimer()))
   const [pomodoroMin, setPomodoroMinState] = useState(loadPomodoroMin)
-  const intervalRef = useRef(null)
+  const intervalRef   = useRef(null)
+  const phaseEndedRef = useRef(false)
 
   function setPomodoroMin(m) {
     localStorage.setItem(POMODORO_KEY, String(m))
     setPomodoroMinState(m)
   }
 
-  const computeElapsed = useCallback((t) => {
-    if (!t) return 0
-    const work = (t.workMs || 0) + (t.paused || !t.lastStart ? 0 : Date.now() - t.lastStart)
-    return Math.floor(work / 1000)
-  }, [])
+  // Durée d'une phase de travail = pomodoroMin (configurable), sinon WORK_SECS par défaut.
+  const workSecs = (pomodoroMin || 25) * 60
+  const phaseSecs = timer?.phase === 'break'
+    ? (timer.breakSecs || SHORT_BREAK_SECS)
+    : workSecs
 
   useEffect(() => {
     clearInterval(intervalRef.current)
-
-    if (!timer) { setElapsed(0); return }
-
-    if (timer.paused) {
-      setElapsed(computeElapsed(timer))
+    if (!timer || timer.paused) {
+      setElapsed(computeElapsedSecs(timer))
       return
     }
 
-    const tick = () => {
-      const secs = computeElapsed(timer)
-      setElapsed(secs)
+    const curPhaseSecs = timer.phase === 'break'
+      ? (timer.breakSecs || SHORT_BREAK_SECS)
+      : workSecs
+    phaseEndedRef.current = false
 
-      // Fin d'un pomodoro : on met en pause et on incrémente le compteur.
-      const threshold = ((timer.pomodoros || 0) + 1) * pomodoroMin * 60
-      if (secs >= threshold) {
+    const tick = () => {
+      const secs = computeElapsedSecs(timer)
+      setElapsed(secs)
+      if (secs >= curPhaseSecs && !phaseEndedRef.current) {
+        phaseEndedRef.current = true
         clearInterval(intervalRef.current)
         const now = Date.now()
-        const updated = {
-          ...timer,
-          workMs: (timer.workMs || 0) + (now - timer.lastStart),
-          paused: true,
-          lastStart: null,
-          pomodoros: (timer.pomodoros || 0) + 1,
+        const deltaMs = timer.lastStart ? now - timer.lastStart : 0
+
+        if (timer.phase === 'work') {
+          // Work done → transition to break
+          playWorkDone()
+          const newCount  = (timer.pomodoroCount || 0) + 1
+          const breakSecs = newCount % 4 === 0 ? LONG_BREAK_SECS : SHORT_BREAK_SECS
+          const updated = {
+            ...timer,
+            workMs: (timer.workMs || 0) + deltaMs,   // freeze total work time
+            breakMs: 0,
+            phase: 'break', breakSecs,
+            lastStart: now, paused: false,
+            pomodoroCount: newCount,
+            pomodoros: newCount,
+          }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+          setTimer(updated); setElapsed(0)
+          const label = newCount % 4 === 0 ? '🎉 Grande pause 25 min !' : `Pause ${breakSecs / 60} min`
+          toast.success(`🍅 Pomodoro ${newCount} terminé ! ${label}`, { duration: 6000 })
+        } else {
+          // Break done → pause, wait for user
+          playBreakDone()
+          const updated = {
+            ...timer,
+            breakMs: (timer.breakMs || 0) + deltaMs,
+            paused: true, lastStart: null,
+          }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+          setTimer(updated); setElapsed(curPhaseSecs)
+          toast('☀️ Pause terminée — prêt pour le prochain Pomodoro ?', { duration: 8000 })
         }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-        setTimer(updated)
-        setAutoStopped(true)
-        setElapsed(Math.floor(updated.workMs / 1000))
       }
     }
 
     tick()
     intervalRef.current = setInterval(tick, 1000)
     return () => clearInterval(intervalRef.current)
-  }, [timer, computeElapsed, pomodoroMin])
+  }, [timer, workSecs])
 
+  // ── Actions ───────────────────────────────────────────────────────────────
   function start(task) {
     clearInterval(intervalRef.current)
-    const t = { ...task, workMs: 0, lastStart: Date.now(), paused: false, pomodoros: 0 }
+    const t = {
+      ...task,
+      workMs: 0, breakMs: 0,
+      lastStart: Date.now(), paused: false,
+      phase: 'work', pomodoroCount: 0, pomodoros: 0,
+      breakSecs: SHORT_BREAK_SECS,
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(t))
-    setTimer(t)
-    setAutoStopped(false)
-    setElapsed(0)
+    setTimer(t); setElapsed(0)
   }
 
   function pause() {
     if (!timer || timer.paused) return
     clearInterval(intervalRef.current)
-    const now = Date.now()
+    const now = Date.now(), deltaMs = timer.lastStart ? now - timer.lastStart : 0
     const updated = {
       ...timer,
-      workMs: (timer.workMs || 0) + (now - timer.lastStart),
-      paused: true,
-      lastStart: null,
+      ...(timer.phase === 'work'
+        ? { workMs: (timer.workMs || 0) + deltaMs }
+        : { breakMs: (timer.breakMs || 0) + deltaMs }),
+      paused: true, lastStart: null,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
     setTimer(updated)
-    setElapsed(Math.floor(updated.workMs / 1000))
+    setElapsed(computeElapsedSecs(updated))
   }
 
   function resume() {
@@ -105,76 +162,91 @@ export function TimerProvider({ children }) {
     const updated = { ...timer, paused: false, lastStart: Date.now() }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
     setTimer(updated)
-    setAutoStopped(false)
+  }
+
+  // Skip break → start next work session immediately
+  function skipBreak() {
+    if (!timer) return
+    clearInterval(intervalRef.current)
+    const updated = {
+      ...timer,
+      phase: 'work', breakMs: 0,
+      lastStart: Date.now(), paused: false,
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+    setTimer(updated); setElapsed(0)
   }
 
   async function stop() {
     if (!timer) return
     clearInterval(intervalRef.current)
-    const finalWorkMs = (timer.workMs || 0) + (timer.paused || !timer.lastStart ? 0 : Date.now() - timer.lastStart)
-    const hours = parseFloat(Math.max(0.08, finalWorkMs / 3600000).toFixed(2))
-    const saved = { ...timer }
+    const now = Date.now()
+    const saved = timer
+    // Total work = frozen workMs + any running work segment (work phase only)
+    const finalWorkMs = (timer.workMs || 0) +
+      (timer.phase === 'work' && !timer.paused && timer.lastStart
+        ? now - timer.lastStart : 0)
 
     localStorage.removeItem(STORAGE_KEY)
-    setTimer(null)
-    setElapsed(0)
-    setAutoStopped(false)
+    setTimer(null); setElapsed(0)
 
-    if (saved.projectId && finalWorkMs >= 60_000) {
-      const entry = {
-        employee_id: saved.employeeId,
-        project_id: saved.projectId,
-        task_id: saved.taskId || null,
-        name: saved.taskName || 'Focus',
-        date: format(new Date(), 'yyyy-MM-dd'),
-        unit_amount: hours,
-      }
-      if (!navigator.onLine) {
-        queueAdd(entry)
-        toast.success(`Hors-ligne — ${hours}h mis en attente de sync`, { duration: 5000 })
-      } else {
-        try {
-          await api.createTimesheet(entry)
-          qc.invalidateQueries({ queryKey: ['timesheets-today'] })
-          qc.invalidateQueries({ queryKey: ['timesheets-2weeks'] })
-          // Comparaison au temps estimé de la tâche (allocated_hours)
-          let extra = ''
-          if (saved.pomodoros) extra += ` · ${saved.pomodoros} pomodoro${saved.pomodoros > 1 ? 's' : ''}`
-          if (saved.estimateHours > 0) {
-            const diff = hours - saved.estimateHours
-            extra += diff <= 0
-              ? ` · estimé ${saved.estimateHours}h, dans les temps`
-              : ` · estimé ${saved.estimateHours}h, dépassé de ${diff.toFixed(1)}h`
-          }
-          toast.success(`${hours}h enregistrées → ${saved.projectName}${extra}`, { duration: 6000 })
-        } catch (e) {
-          queueAdd(entry)
-          toast.error(`Erreur réseau — ${hours}h sauvegardées localement`, { duration: 5000 })
+    if (!timer.projectId || finalWorkMs < 60_000) {
+      if (finalWorkMs < 60_000) toast('Durée trop courte — non enregistré')
+      return
+    }
+    const hours = parseFloat(Math.max(0.08, finalWorkMs / 3_600_000).toFixed(2))
+    const entry = {
+      employee_id: timer.employeeId, project_id: timer.projectId,
+      task_id: timer.taskId || null, name: timer.taskName || 'Pomodoro',
+      date: format(new Date(), 'yyyy-MM-dd'), unit_amount: hours,
+    }
+    if (!navigator.onLine) {
+      queueAdd(entry)
+      toast.success(`Hors-ligne — ${hours}h en attente de sync`, { duration: 5000 })
+    } else {
+      try {
+        await api.createTimesheet(entry)
+        qc.invalidateQueries({ queryKey: ['timesheets-today'] })
+        qc.invalidateQueries({ queryKey: ['timesheets-2weeks'] })
+        // Comparaison au temps estimé de la tâche (allocated_hours) + compteur pomodoros
+        let extra = ''
+        const doneP = saved.pomodoros || saved.pomodoroCount || 0
+        if (doneP) extra += ` · ${doneP} pomodoro${doneP > 1 ? 's' : ''}`
+        if (saved.estimateHours > 0) {
+          const diff = hours - saved.estimateHours
+          extra += diff <= 0
+            ? ` · estimé ${saved.estimateHours}h, dans les temps`
+            : ` · estimé ${saved.estimateHours}h, dépassé de ${diff.toFixed(1)}h`
         }
+        toast.success(`✅ ${hours}h enregistrées → ${saved.projectName}${extra}`, { duration: 6000 })
+      } catch {
+        queueAdd(entry)
+        toast.error(`Erreur réseau — ${hours}h sauvegardées localement`, { duration: 5000 })
       }
-    } else if (finalWorkMs < 60_000) {
-      toast('Durée inférieure à 1 min — non enregistré')
     }
   }
 
   function cancel() {
     clearInterval(intervalRef.current)
     localStorage.removeItem(STORAGE_KEY)
-    setTimer(null)
-    setElapsed(0)
-    setAutoStopped(false)
+    setTimer(null); setElapsed(0)
   }
 
   return (
     <TimerContext.Provider value={{
-      timer, elapsed, isRunning: !!timer,
-      isPaused: timer?.paused || false,
-      autoStopped,
+      timer, elapsed,
+      remaining: Math.max(0, phaseSecs - elapsed),
+      progress:  Math.min(1, elapsed / (phaseSecs || 1)),
+      phaseSecs,
+      isRunning: !!timer,
+      isPaused:  timer?.paused  || false,
+      phase:     timer?.phase   || 'work',
+      pomodoroCount: timer?.pomodoroCount || 0,
       runningTaskId: timer?.taskId || null,
-      pomodoros: timer?.pomodoros || 0,
+      pomodoros: timer?.pomodoros || timer?.pomodoroCount || 0,
       estimateHours: timer?.estimateHours || 0,
       pomodoroMin, setPomodoroMin,
-      start, pause, resume, stop, cancel,
+      start, pause, resume, stop, cancel, skipBreak,
     }}>
       {children}
     </TimerContext.Provider>
@@ -188,5 +260,11 @@ export function formatElapsed(secs) {
   const m = Math.floor((secs % 3600) / 60)
   const s = secs % 60
   if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+export function formatCountdown(secs) {
+  const m = Math.floor(Math.max(0, secs) / 60)
+  const s = Math.max(0, secs) % 60
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }

@@ -61,6 +61,13 @@ function riskLevel(score) {
   return            { label: 'Faible',    color: '#22c55e', bg: '#f0fdf4' }
 }
 
+function statusStyle(status) {
+  if (status === 'Clos')         return { background: '#f0fdf4', color: '#16a34a' }
+  if (status === 'Survenu' || status === 'Déclenché') return { background: '#fef2f2', color: '#dc2626' }
+  if (status === 'En traitement') return { background: '#eff6ff', color: '#2563eb' }
+  return { background: '#fef9c3', color: '#92400e' }
+}
+
 function RiskRow({ task, projectId, onEdit }) {
   const meta = parseRiskMeta(task.description)
   const type = RISK_RE.test(task.name) ? 'RISQUE' : 'PROBLÈME'
@@ -68,13 +75,11 @@ function RiskRow({ task, projectId, onEdit }) {
   const score = riskScore(meta.prob, meta.impact)
   const level = riskLevel(score)
   const qc = useQueryClient()
+  const today = new Date().toISOString().split('T')[0]
 
   const del = useMutation({
     mutationFn: () => api.updateTask(task.id, { active: false }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['risks', projectId] })
-      toast.success('Supprimé')
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['risks', projectId] }); toast.success('Supprimé') },
     onError: (e) => toast.error(e.message),
   })
 
@@ -99,6 +104,11 @@ function RiskRow({ task, projectId, onEdit }) {
     const delay = meta.occurredOn ? daysBetween(meta.occurredOn, m.resolvedOn) : null
     toast.success(delay != null ? `Réglé en ${delay} jour(s)` : 'Marqué comme réglé')
   }
+
+  // Délai de résolution (jours) — depuis « survenu » jusqu'à « réglé ».
+  const resolutionDays = meta.occurredOn && meta.resolvedOn
+    ? daysBetween(meta.occurredOn, meta.resolvedOn)
+    : null
 
   return (
     <tr style={{ fontSize: '.8rem', borderBottom: '1px solid var(--border)', background: level.bg + '44' }}>
@@ -147,11 +157,22 @@ function RiskRow({ task, projectId, onEdit }) {
       </td>
       <td style={{ padding: '6px 8px', color: 'var(--text-muted)' }}>{meta.owner || '—'}</td>
       <td style={{ padding: '6px 8px' }}>
-        <span style={{
-          fontSize: '.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 700,
-          background: meta.status === 'Clos' ? '#f0fdf4' : meta.status === 'En traitement' ? '#eff6ff' : '#fef9c3',
-          color: meta.status === 'Clos' ? '#16a34a' : meta.status === 'En traitement' ? '#2563eb' : '#92400e',
-        }}>{meta.status || 'Ouvert'}</span>
+        <span style={{ fontSize: '.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 700, ...statusStyle(meta.status || 'Ouvert') }}>
+          {meta.status || 'Ouvert'}
+        </span>
+      </td>
+      <td style={{ padding: '6px 8px', fontSize: '.72rem', color: 'var(--primary)',
+        fontStyle: 'italic', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {meta.tache_concernee
+          ? <span>🔗 {meta.tache_concernee}</span>
+          : <span style={{ color: 'var(--text-muted)', fontStyle: 'normal' }}>—</span>}
+      </td>
+      <td style={{ padding: '6px 8px', textAlign: 'center', whiteSpace: 'nowrap', fontSize: '.72rem' }}>
+        {resolutionDays !== null
+          ? <span style={{ color: '#16a34a', fontWeight: 700 }}>Δ {resolutionDays}j</span>
+          : meta.occurredOn
+          ? <span style={{ color: '#f97316' }}>⏳ En cours</span>
+          : <span style={{ color: 'var(--text-muted)' }}>—</span>}
       </td>
       <td style={{ padding: '6px 4px', whiteSpace: 'nowrap' }}>
         <button onClick={escalate} title="Réévaluer la probabilité à la hausse"
@@ -178,16 +199,21 @@ function RiskRow({ task, projectId, onEdit }) {
   )
 }
 
-const EMPTY_FORM = {
-  type: 'RISQUE', name: '', prob: 'M', impact: 'M',
-  category: 'Technique', treatment: '', owner: '', status: 'Ouvert', deliverable_id: '',
+function emptyForm(owner) {
+  return {
+    type: 'RISQUE', name: '', prob: 'M', impact: 'M',
+    category: 'Technique', treatment: '', owner: owner || '', status: 'Ouvert',
+    deliverable_id: '', tache_concernee: '',
+  }
 }
 
-export default function RiskRegister({ projectId }) {
+const RISK_ISO_RE = /^\[(RISK|RISQUE|ISSUE|PROBLEME|CHARTER|STAKEHOLDER|CHANGE|DELIVERABLE|LESSON|COMMS|PROCUREMENT|RESOURCE|QUALITY|MILESTONE)\]/i
+
+export default function RiskRegister({ projectId, defaultOwner = '' }) {
   const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editTask, setEditTask] = useState(null)
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [form, setForm] = useState(() => emptyForm(defaultOwner))
   const [showSuggest, setShowSuggest] = useState(false)
 
   const { data: allTasks = [] } = useQuery({
@@ -199,15 +225,17 @@ export default function RiskRegister({ projectId }) {
     enabled: !!projectId,
   })
 
-  // Livrables du projet (pour rattacher le risque/problème à un livrable)
-  const { data: deliverables = [] } = useQuery({
+  // Tâches du projet : on en tire à la fois les livrables et les tâches WBS.
+  const { data: projectTasks = [] } = useQuery({
     queryKey: ['task-tree', projectId],
     queryFn: () => api.getProjectTaskTree(projectId),
-    enabled: !!projectId,
     staleTime: 60_000,
-    select: (tasks) => tasks.filter(t => /^\[DELIVERABLE\]/i.test(t.name))
-      .map(t => ({ id: t.id, name: t.name.replace(/^\[DELIVERABLE\]\s*/i, '').trim() })),
+    enabled: !!projectId,
   })
+  const wbsTasks = projectTasks.filter(t => !RISK_ISO_RE.test(t.name))
+  const deliverables = projectTasks
+    .filter(t => /^\[DELIVERABLE\]/i.test(t.name))
+    .map(t => ({ id: t.id, name: t.name.replace(/^\[DELIVERABLE\]\s*/i, '').trim() }))
 
   const createRisk = useMutation({
     mutationFn: (data) => api.createTask(data),
@@ -223,7 +251,7 @@ export default function RiskRegister({ projectId }) {
 
   function f(k, v) { setForm(p => ({ ...p, [k]: v })) }
 
-  function openCreate() { setEditTask(null); setForm(EMPTY_FORM); setShowForm(true) }
+  function openCreate() { setEditTask(null); setForm(emptyForm(defaultOwner)); setShowForm(true) }
   function openEdit(task) {
     const meta = parseRiskMeta(task.description)
     const type = RISK_RE.test(task.name) ? 'RISQUE' : 'PROBLÈME'
@@ -231,7 +259,8 @@ export default function RiskRegister({ projectId }) {
     setEditTask(task)
     setForm({ type, name, prob: meta.prob || 'M', impact: meta.impact || 'M',
       category: meta.category || 'Technique', treatment: meta.treatment || '',
-      owner: meta.owner || '', status: meta.status || 'Ouvert', deliverable_id: meta.deliverable_id || '' })
+      owner: meta.owner || '', status: meta.status || 'Ouvert',
+      deliverable_id: meta.deliverable_id || '', tache_concernee: meta.tache_concernee || '' })
     setShowForm(true)
   }
 
@@ -242,7 +271,7 @@ export default function RiskRegister({ projectId }) {
     const meta = { ...(editTask ? parseRiskMeta(editTask.description) : {}),
       prob: form.prob, impact: form.impact, category: form.category,
       treatment: form.treatment, owner: form.owner, status: form.status,
-      deliverable_id: form.deliverable_id }
+      deliverable_id: form.deliverable_id, tache_concernee: form.tache_concernee }
     const description = encodeMeta('', meta)
 
     if (editTask) {
@@ -332,7 +361,7 @@ export default function RiskRegister({ projectId }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.82rem' }}>
             <thead>
               <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
-                {['Type', 'Description', 'Prob.', 'Impact', 'Niveau', 'Traitement', 'Propriétaire', 'Statut', ''].map(h => (
+                {['Type', 'Description', 'Prob.', 'Impact', 'Niveau', 'Traitement', 'Propriétaire', 'Statut', 'Tâche liée', 'Résolution', ''].map(h => (
                   <th key={h} style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700,
                     fontSize: '.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{h}</th>
                 ))}
@@ -406,12 +435,21 @@ export default function RiskRegister({ projectId }) {
                 placeholder="Nom / rôle…" />
             </div>
           </div>
-          <div className="form-group" style={{ marginTop: '.6rem', marginBottom: 0 }}>
-            <label>Livrable associé</label>
-            <select value={form.deliverable_id} onChange={e => f('deliverable_id', e.target.value)}>
-              <option value="">— Aucun —</option>
-              {deliverables.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.6rem', marginTop: '.6rem' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Livrable associé</label>
+              <select value={form.deliverable_id} onChange={e => f('deliverable_id', e.target.value)}>
+                <option value="">— Aucun —</option>
+                {deliverables.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Tâche WBS liée</label>
+              <select value={form.tache_concernee} onChange={e => f('tache_concernee', e.target.value)}>
+                <option value="">— Aucune tâche liée —</option>
+                {wbsTasks.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+              </select>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: '.5rem', marginTop: '.75rem' }}>
             <button className="btn btn-primary" style={{ flex: 1 }}
