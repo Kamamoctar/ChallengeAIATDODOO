@@ -8,10 +8,15 @@ import { api } from '../api/odoo'
 import Select from 'react-select'
 import { FolderOpen, Archive, ClipboardList, Plus, Folder, Calendar, AlertTriangle, User, Building2 } from 'lucide-react'
 import { parsePhase, ISO_PHASES } from '../components/ISOPhase'
+import { useTeam } from '../context/TeamContext'
 
 export default function Projects() {
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { active } = useTeam()
+  const userId = active.id === parseInt(import.meta.env.VITE_EMPLOYEE_A_ID || '0')
+    ? parseInt(import.meta.env.VITE_EMPLOYEE_A_USER_ID || '0')
+    : parseInt(import.meta.env.VITE_EMPLOYEE_B_USER_ID || '0')
   const [search, setSearch] = useState('')
   const [showNew, setShowNew] = useState(false)
   const [showClone, setShowClone] = useState(false)
@@ -50,6 +55,7 @@ export default function Projects() {
   })
 
   const [showArchived, setShowArchived] = useState(false)
+  const [ownerFilter, setOwnerFilter] = useState(false)
   const [companyFilter, setCompanyFilter] = useState(null)  // null = toutes les sociétés
 
   const activeProjects = projects.filter(p => {
@@ -57,7 +63,8 @@ export default function Projects() {
     return phase !== 'Closing'
   })
   const archivedProjects = projects.filter(p => parsePhase(p.description) === 'Closing')
-  const pool = showArchived ? archivedProjects : activeProjects
+  const pool = (showArchived ? archivedProjects : activeProjects)
+    .filter(p => !ownerFilter || (Array.isArray(p.user_id) && p.user_id[0] === userId))
 
   const companyOf = (p) => (Array.isArray(p.company_id) ? p.company_id[1] : 'Sans société')
 
@@ -145,6 +152,11 @@ export default function Projects() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '.4rem' }}>
+          <button onClick={() => setOwnerFilter(v => !v)}
+            className={`btn ${ownerFilter ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ padding: '6px 10px', fontSize: '.8rem' }}>
+            <User size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Mes projets
+          </button>
           <button onClick={() => setShowArchived(v => !v)}
             className={`btn ${showArchived ? 'btn-primary' : 'btn-ghost'}`}
             style={{ padding: '6px 10px', fontSize: '.8rem' }}>

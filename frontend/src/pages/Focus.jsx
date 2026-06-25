@@ -67,6 +67,13 @@ export default function Focus() {
     staleTime: 300_000,
   })
 
+  const { data: managedTasks = [] } = useQuery({
+    queryKey: ['managed-tasks', userId],
+    queryFn: () => api.getManagedTasks(userId),
+    enabled: userId > 0,
+    staleTime: 120_000,
+  })
+
   const doneStageId = useMemo(() => {
     const s = stages.filter(s => /done|terminé|fermé|clôt/i.test(s.name))
     if (!s.length) return null
@@ -299,6 +306,58 @@ export default function Focus() {
             </div>
           </>
         )}
+
+        {(() => {
+          const myTaskIds = new Set(myTasks.map(t => t.id))
+          const managedOnly = managedTasks
+            .filter(t => !myTaskIds.has(t.id) && !completedIds.has(t.id))
+            .sort((a, b) => urgencyOf(a.date_deadline).rank - urgencyOf(b.date_deadline).rank)
+          if (!managedOnly.length) return null
+          return (
+            <>
+              <div className="section-title" style={{ marginTop: '1.5rem' }}>
+                Tâches de mes projets
+                <span style={{ marginLeft: '.4rem', fontSize: '.68rem', fontWeight: 400,
+                  background: 'var(--primary-light)', color: 'var(--primary)',
+                  borderRadius: 10, padding: '1px 6px' }}>
+                  {managedOnly.length}
+                </span>
+              </div>
+              <div className="card">
+                {managedOnly.slice(0, 20).map(t => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '.5rem',
+                    padding: '.4rem 0', borderBottom: '1px solid var(--border)' }}>
+                    <button
+                      onClick={() => doneStageId && completeTask.mutate(t.id)}
+                      disabled={!doneStageId || completedIds.has(t.id)}
+                      className={`task-done-btn task-done-btn--sm${completedIds.has(t.id) ? ' task-done-btn--active' : ''}`}
+                      title="Marquer comme terminée"
+                    ><Check size={14} /></button>
+                    <div style={{ flex: 1, fontSize: '.85rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem' }}>
+                        <span>{t.priority === '1' && <Star size={13} color="#f59e0b" fill="#f59e0b" style={{ verticalAlign: '-2px', marginRight: 4, flexShrink: 0 }} />}{t.name}</span>
+                        {t.date_deadline && <UrgencyBadge deadline={t.date_deadline} />}
+                      </div>
+                      <div style={{ fontSize: '.7rem', color: 'var(--text-muted)' }}>
+                        {Array.isArray(t.project_id) ? t.project_id[1] : 'Sans projet'}
+                        {Array.isArray(t.user_ids) && t.user_ids.length > 0
+                          ? <span style={{ marginLeft: '.35rem', opacity: .65 }}>· assignée</span>
+                          : <span style={{ marginLeft: '.35rem', color: 'var(--warning)', fontWeight: 600 }}>· non assignée</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => addToFocus(t)}
+                      style={{ background: 'var(--bg)', border: '1px solid var(--border)',
+                        borderRadius: 6, padding: '3px 8px', fontSize: '.75rem', cursor: 'pointer',
+                        color: focus.length >= 3 ? 'var(--text-muted)' : 'var(--primary)' }}
+                      disabled={focus.length >= 3}>
+                      + Focus
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )
+        })()}
       </main>
     </div>
   )

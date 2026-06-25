@@ -30,6 +30,7 @@ export const api = {
 
   // Tasks
   getMyTasks: (userId) => request('GET', `/api/tasks/mine?user_id=${userId}`),
+  getManagedTasks: (userId) => request('GET', `/api/tasks/managed?user_id=${userId}`),
   getIndependentTasks: (userId) => request('GET', `/api/tasks/independent?user_id=${userId}`),
   getTask: (id) => request('GET', `/api/tasks/${id}`),
   createTask: (data) => request('POST', '/api/tasks', data),
