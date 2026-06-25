@@ -40,6 +40,13 @@ function UrgencyBadge({ deadline }) {
   )
 }
 
+const NOT_STARTED_RE = /\b(à faire|backlog|to.?do|non.?démarr|planifi|nouveau|new|todo)\b/i
+function isActiveStage(stage_id) {
+  if (!stage_id) return true
+  const name = Array.isArray(stage_id) ? (stage_id[1] || '') : String(stage_id)
+  return !NOT_STARTED_RE.test(name)
+}
+
 export default function Focus() {
   const { active } = useTeam()
   const { isRunning, runningTaskId, start } = useTimer()
@@ -47,6 +54,7 @@ export default function Focus() {
   const [showPicker, setShowPicker] = useState(false)
   const [logTask, setLogTask] = useState(null)
   const [search, setSearch] = useState('')
+  const [activeOnly, setActiveOnly] = useState(true)
 
   const userId = active.id === parseInt(import.meta.env.VITE_EMPLOYEE_A_ID || '0')
     ? parseInt(import.meta.env.VITE_EMPLOYEE_A_USER_ID || '0')
@@ -274,9 +282,19 @@ export default function Focus() {
 
         {myTasks.length > 0 && (
           <>
-            <div className="section-title" style={{ marginTop: '1.5rem' }}>Mes tâches par priorité</div>
-            <div className="card">
-              {sortedTasks.filter(t => !completedIds.has(t.id)).slice(0, 15).map(t => (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.5rem' }}>
+              <div className="section-title" style={{ margin: 0 }}>Mes tâches par priorité</div>
+              <button className={`btn ${activeOnly ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ fontSize: '.72rem', padding: '3px 9px' }}
+                onClick={() => setActiveOnly(v => !v)}>
+                {activeOnly ? '⚡ En cours' : '📋 Toutes'}
+              </button>
+            </div>
+            <div className="card" style={{ marginTop: '.5rem' }}>
+              {sortedTasks
+                .filter(t => !completedIds.has(t.id))
+                .filter(t => !activeOnly || isActiveStage(t.stage_id) || urgencyOf(t.date_deadline).rank === 0)
+                .slice(0, 15).map(t => (
                 <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '.5rem',
                   padding: '.4rem 0', borderBottom: '1px solid var(--border)' }}>
                   <button
@@ -311,6 +329,7 @@ export default function Focus() {
           const myTaskIds = new Set(myTasks.map(t => t.id))
           const managedOnly = managedTasks
             .filter(t => !myTaskIds.has(t.id) && !completedIds.has(t.id))
+            .filter(t => !activeOnly || isActiveStage(t.stage_id) || urgencyOf(t.date_deadline).rank === 0)
             .sort((a, b) => urgencyOf(a.date_deadline).rank - urgencyOf(b.date_deadline).rank)
           if (!managedOnly.length) return null
           return (

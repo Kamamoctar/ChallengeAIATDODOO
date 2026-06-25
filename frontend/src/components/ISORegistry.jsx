@@ -61,7 +61,7 @@ function Badge({ value }) {
 }
 
 /* ─── Form field ─────────────────────────────────────────── */
-function FormField({ field, value, onChange }) {
+function FormField({ field, value, onChange, wbsTasks = [] }) {
   const base = { width: '100%', padding: '.55rem .75rem', border: '1.5px solid var(--border)',
     borderRadius: 8, font: 'inherit', fontSize: '.9rem', background: 'var(--bg)' }
 
@@ -71,6 +71,16 @@ function FormField({ field, value, onChange }) {
         <option value="">— choisir —</option>
         {field.options.map(o => (
           <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>
+        ))}
+      </select>
+    )
+  }
+  if (field.type === 'task_select') {
+    return (
+      <select value={value || ''} onChange={e => onChange(e.target.value)} style={base}>
+        <option value="">— Aucune tâche liée —</option>
+        {wbsTasks.map(t => (
+          <option key={t.id} value={t.name}>{t.name}</option>
         ))}
       </select>
     )
@@ -91,6 +101,8 @@ function FormField({ field, value, onChange }) {
 }
 
 /* ─── Main component ─────────────────────────────────────── */
+const ALL_ISO_RE = /^\[(STAKEHOLDER|CHANGE|DELIVERABLE|LESSON|COMMS|RESOURCE|QUALITY|PROCUREMENT|CHARTER|MEETING|RISK|ISSUE|MILESTONE)\]/i
+
 export default function ISORegistry({
   projectId,
   prefix,       // e.g. "STAKEHOLDER"
@@ -101,6 +113,7 @@ export default function ISORegistry({
   fields,       // [{ key, label, type, options?, placeholder?, required? }]
   nameField,    // field key used as Odoo task name
   emptyMsg,
+  autofill = {},
 }) {
   const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
@@ -118,6 +131,7 @@ export default function ISORegistry({
   })
 
   const items = allTasks.filter(t => re.test(t.name))
+  const wbsTasks = allTasks.filter(t => !ALL_ISO_RE.test(t.name))
 
   const createItem = useMutation({
     mutationFn: (data) => api.createTask(data),
@@ -139,7 +153,8 @@ export default function ISORegistry({
 
   function openCreate() {
     setEditTask(null)
-    setForm(Object.fromEntries(fields.map(f => [f.key, f.default || ''])))
+    const base = Object.fromEntries(fields.map(f => [f.key, f.default || '']))
+    setForm({ ...base, ...autofill })
     setShowForm(true)
   }
 
@@ -220,7 +235,11 @@ export default function ISORegistry({
                         <td key={col.key} style={{ padding: '8px 10px', fontSize: '.82rem',
                           maxWidth: col.maxWidth || 180,
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: col.wrap ? 'normal' : 'nowrap' }}>
-                          {col.badge
+                          {col.type === 'task_select'
+                            ? (val
+                                ? <span style={{ fontSize: '.72rem', color: 'var(--primary)', fontStyle: 'italic' }}>🔗 {val}</span>
+                                : <span style={{ color: 'var(--text-muted)' }}>—</span>)
+                            : col.badge
                             ? <Badge value={val} />
                             : (val || <span style={{ color: 'var(--text-muted)' }}>—</span>)}
                         </td>
@@ -256,7 +275,7 @@ export default function ISORegistry({
               <div key={field.key} className="form-group" style={{ marginBottom: 0,
                 gridColumn: field.fullWidth ? '1 / -1' : undefined }}>
                 <label>{field.label}{field.required ? ' *' : ''}</label>
-                <FormField field={field} value={form[field.key]} onChange={v => f(field.key, v)} />
+                <FormField field={field} value={form[field.key]} onChange={v => f(field.key, v)} wbsTasks={wbsTasks} />
               </div>
             ))}
           </div>

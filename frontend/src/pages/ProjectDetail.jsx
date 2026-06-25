@@ -10,7 +10,7 @@ import {
 import { api } from '../api/odoo'
 import { useTeam } from '../context/TeamContext'
 import TaskTree from '../components/TaskTree'
-import ISOPhase from '../components/ISOPhase'
+import ISOPhase, { parsePhase } from '../components/ISOPhase'
 import RiskRegister from '../components/RiskRegister'
 import ProjectCharter from '../components/ProjectCharter'
 import ISORegistry from '../components/ISORegistry'
@@ -111,6 +111,20 @@ export default function ProjectDetail() {
     return active.id === parseInt(import.meta.env.VITE_EMPLOYEE_A_ID)
       ? parseInt(import.meta.env.VITE_EMPLOYEE_A_USER_ID || '0')
       : parseInt(import.meta.env.VITE_EMPLOYEE_B_USER_ID || '0')
+  }
+
+  const todayStr = new Date().toISOString().split('T')[0]
+  const currentPhase = parsePhase(project?.description) || 'Planning'
+
+  function autofillFor(key) {
+    const u = active.name
+    if (key === 'changes')      return { demandeur: u, date_demande: todayStr, statut: 'Soumis' }
+    if (key === 'deliverables') return { responsable: u, statut: 'En cours', date_cible: project?.date || '' }
+    if (key === 'quality')      return { responsable: u, statut: 'Conforme' }
+    if (key === 'comms')        return { responsable: u, prochaine: todayStr }
+    if (key === 'procurement')  return { statut: 'Planifié' }
+    if (key === 'resources')    return { disponibilite: 'Plein temps' }
+    return {}
   }
 
   // Stats
@@ -330,7 +344,7 @@ export default function ProjectDetail() {
           <>
             <div className="section-title">Registre des Risques & Problèmes</div>
             <div className="card">
-              <RiskRegister projectId={projectId} />
+              <RiskRegister projectId={projectId} defaultOwner={active.name} />
             </div>
           </>
         )}
@@ -348,7 +362,7 @@ export default function ProjectDetail() {
           <>
             <div className="section-title">Parties Prenantes</div>
             <div className="card">
-              <ISORegistry projectId={projectId} {...STAKEHOLDER_CONFIG} />
+              <ISORegistry projectId={projectId} {...STAKEHOLDER_CONFIG} autofill={autofillFor('stakeholders')} />
             </div>
           </>
         )}
@@ -357,7 +371,7 @@ export default function ProjectDetail() {
           <>
             <div className="section-title">Ressources du Projet</div>
             <div className="card">
-              <ISORegistry projectId={projectId} {...RESOURCE_CONFIG} />
+              <ISORegistry projectId={projectId} {...RESOURCE_CONFIG} autofill={autofillFor('resources')} />
             </div>
           </>
         )}
@@ -366,7 +380,7 @@ export default function ProjectDetail() {
           <>
             <div className="section-title">Journal des Modifications</div>
             <div className="card">
-              <ISORegistry projectId={projectId} {...CHANGE_CONFIG} />
+              <ISORegistry projectId={projectId} {...CHANGE_CONFIG} autofill={autofillFor('changes')} />
             </div>
           </>
         )}
@@ -375,7 +389,7 @@ export default function ProjectDetail() {
           <>
             <div className="section-title">Registre des Livrables</div>
             <div className="card">
-              <ISORegistry projectId={projectId} {...DELIVERABLE_CONFIG} />
+              <ISORegistry projectId={projectId} {...DELIVERABLE_CONFIG} autofill={autofillFor('deliverables')} />
             </div>
           </>
         )}
@@ -384,7 +398,7 @@ export default function ProjectDetail() {
           <>
             <div className="section-title">Plan Qualité</div>
             <div className="card">
-              <ISORegistry projectId={projectId} {...QUALITY_CONFIG} />
+              <ISORegistry projectId={projectId} {...QUALITY_CONFIG} autofill={autofillFor('quality')} />
             </div>
           </>
         )}
@@ -393,7 +407,7 @@ export default function ProjectDetail() {
           <>
             <div className="section-title">Leçons Apprises</div>
             <div className="card">
-              <ISORegistry projectId={projectId} {...LESSON_CONFIG} />
+              <ISORegistry projectId={projectId} {...LESSON_CONFIG} autofill={autofillFor('lessons')} />
             </div>
           </>
         )}
@@ -402,7 +416,7 @@ export default function ProjectDetail() {
           <>
             <div className="section-title">Plan de Communication</div>
             <div className="card">
-              <ISORegistry projectId={projectId} {...COMMS_CONFIG} />
+              <ISORegistry projectId={projectId} {...COMMS_CONFIG} autofill={autofillFor('comms')} />
             </div>
           </>
         )}
@@ -411,7 +425,7 @@ export default function ProjectDetail() {
           <>
             <div className="section-title">Registre des Achats</div>
             <div className="card">
-              <ISORegistry projectId={projectId} {...PROCUREMENT_CONFIG} />
+              <ISORegistry projectId={projectId} {...PROCUREMENT_CONFIG} autofill={autofillFor('procurement')} />
             </div>
           </>
         )}

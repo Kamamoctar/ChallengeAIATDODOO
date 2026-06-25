@@ -118,6 +118,12 @@ function RiskRow({ task, projectId, onEdit }) {
           {meta.status || 'Ouvert'}
         </span>
       </td>
+      <td style={{ padding: '6px 8px', fontSize: '.72rem', color: 'var(--primary)',
+        fontStyle: 'italic', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {meta.tache_concernee
+          ? <span>🔗 {meta.tache_concernee}</span>
+          : <span style={{ color: 'var(--text-muted)', fontStyle: 'normal' }}>—</span>}
+      </td>
       <td style={{ padding: '6px 8px', textAlign: 'center', whiteSpace: 'nowrap', fontSize: '.72rem' }}>
         {resolutionDays !== null
           ? <span style={{ color: '#16a34a', fontWeight: 700 }}>Δ {resolutionDays}j</span>
@@ -153,16 +159,21 @@ function RiskRow({ task, projectId, onEdit }) {
   )
 }
 
-const EMPTY_FORM = {
-  type: 'RISQUE', name: '', prob: 'M', impact: 'M',
-  category: 'Technique', treatment: '', owner: '', status: 'Ouvert',
+function emptyForm(owner) {
+  return {
+    type: 'RISQUE', name: '', prob: 'M', impact: 'M',
+    category: 'Technique', treatment: '', owner: owner || '', status: 'Ouvert',
+    tache_concernee: '',
+  }
 }
 
-export default function RiskRegister({ projectId }) {
+const RISK_ISO_RE = /^\[(RISK|RISQUE|ISSUE|PROBLEME|CHARTER|STAKEHOLDER|CHANGE|DELIVERABLE|LESSON|COMMS|PROCUREMENT|RESOURCE|QUALITY|MILESTONE)\]/i
+
+export default function RiskRegister({ projectId, defaultOwner = '' }) {
   const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editTask, setEditTask] = useState(null)
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [form, setForm] = useState(() => emptyForm(defaultOwner))
 
   const { data: allTasks = [] } = useQuery({
     queryKey: ['risks', projectId],
@@ -172,6 +183,14 @@ export default function RiskRegister({ projectId }) {
     },
     enabled: !!projectId,
   })
+
+  const { data: projectTasks = [] } = useQuery({
+    queryKey: ['task-tree', projectId],
+    queryFn: () => api.getProjectTaskTree(projectId),
+    staleTime: 60_000,
+    enabled: !!projectId,
+  })
+  const wbsTasks = projectTasks.filter(t => !RISK_ISO_RE.test(t.name))
 
   const createRisk = useMutation({
     mutationFn: (data) => api.createTask(data),
@@ -187,7 +206,7 @@ export default function RiskRegister({ projectId }) {
 
   function f(k, v) { setForm(p => ({ ...p, [k]: v })) }
 
-  function openCreate() { setEditTask(null); setForm(EMPTY_FORM); setShowForm(true) }
+  function openCreate() { setEditTask(null); setForm(emptyForm(defaultOwner)); setShowForm(true) }
   function openEdit(task) {
     const meta = parseRiskMeta(task.description)
     const type = RISK_RE.test(task.name) ? 'RISQUE' : 'PROBLÈME'
@@ -195,7 +214,8 @@ export default function RiskRegister({ projectId }) {
     setEditTask(task)
     setForm({ type, name, prob: meta.prob || 'M', impact: meta.impact || 'M',
       category: meta.category || 'Technique', treatment: meta.treatment || '',
-      owner: meta.owner || '', status: meta.status || 'Ouvert' })
+      owner: meta.owner || '', status: meta.status || 'Ouvert',
+      tache_concernee: meta.tache_concernee || '' })
     setShowForm(true)
   }
 
@@ -205,6 +225,7 @@ export default function RiskRegister({ projectId }) {
     const taskName = `${prefix} ${form.name.trim()}`
     const meta = { prob: form.prob, impact: form.impact, category: form.category,
       treatment: form.treatment, owner: form.owner, status: form.status }
+    if (form.tache_concernee) meta.tache_concernee = form.tache_concernee
     if (editTask) {
       const existing = parseRiskMeta(editTask.description)
       if (existing.triggered_date) meta.triggered_date = existing.triggered_date
@@ -252,7 +273,7 @@ export default function RiskRegister({ projectId }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.82rem' }}>
             <thead>
               <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
-                {['Type', 'Description', 'Prob.', 'Impact', 'Niveau', 'Traitement', 'Propriétaire', 'Statut', 'Résolution', ''].map(h => (
+                {['Type', 'Description', 'Prob.', 'Impact', 'Niveau', 'Traitement', 'Propriétaire', 'Statut', 'Tâche liée', 'Résolution', ''].map(h => (
                   <th key={h} style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700,
                     fontSize: '.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{h}</th>
                 ))}
@@ -325,6 +346,13 @@ export default function RiskRegister({ projectId }) {
               <input type="text" value={form.owner} onChange={e => f('owner', e.target.value)}
                 placeholder="Nom / rôle…" />
             </div>
+          </div>
+          <div className="form-group" style={{ margin: '.6rem 0 0' }}>
+            <label>Tâche WBS liée</label>
+            <select value={form.tache_concernee} onChange={e => f('tache_concernee', e.target.value)}>
+              <option value="">— Aucune tâche liée —</option>
+              {wbsTasks.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+            </select>
           </div>
           <div style={{ display: 'flex', gap: '.5rem', marginTop: '.75rem' }}>
             <button className="btn btn-primary" style={{ flex: 1 }}
