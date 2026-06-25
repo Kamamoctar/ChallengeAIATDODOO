@@ -31,7 +31,10 @@ MENU_KEYBOARD = [
         {"text": "👥 Équipe",       "callback_data": "/equipe"},
     ],
     [
+        {"text": "🔔 Alertes",      "callback_data": "/alertes"},
         {"text": "🗂 Portefeuille", "callback_data": "/portefeuille"},
+    ],
+    [
         {"text": "❓ Aide",         "callback_data": "/aide"},
     ],
 ]
@@ -53,6 +56,7 @@ BOT_COMMANDS = [
     {"command": "log",         "description": "Enregistrer du temps (ex: /log 2h Alpha)"},
     {"command": "modifier",    "description": "Modifier une entrée (ex: /modifier 123 2.5)"},
     {"command": "supprimer",   "description": "Supprimer une entrée (ex: /supprimer 123)"},
+    {"command": "alertes",     "description": "Mes tâches urgentes et en retard 🔔"},
     {"command": "aide",        "description": "Aide et liste des commandes ❓"},
 ]
 
@@ -232,6 +236,12 @@ async def _dispatch(bot_token: str, chat_id: int, tg_uid: int, text: str):
         err = requires_auth()
         if err: await reply(err); return
         await reply(await commands.cmd_taches(res_user_id))
+        return
+
+    if text.startswith("/alertes"):
+        err = requires_auth()
+        if err: await reply(err); return
+        await reply(await commands.cmd_alertes(employee_id, res_user_id))
         return
 
     if text.startswith("/recap"):

@@ -45,6 +45,7 @@ export const CHANGE_CONFIG = {
     { key: 'impact',         label: 'Impact',         width: 80,  badge: true },
     { key: 'statut',         label: 'Statut',         width: 90,  badge: true },
     { key: 'date_demande',   label: 'Date',           width: 85 },
+    { key: 'tache_concernee', label: 'Tâche',         width: 130 },
   ],
   fields: [
     { key: 'description',  label: 'Description de la modification', type: 'textarea', placeholder: 'Décrire précisément le changement demandé…', required: true, fullWidth: true },
@@ -53,6 +54,7 @@ export const CHANGE_CONFIG = {
     { key: 'impact',       label: 'Impact estimé',         type: 'select', options: ['Élevé', 'Moyen', 'Faible'] },
     { key: 'statut',       label: 'Statut',                type: 'select', options: ['Soumis', 'En révision', 'Approuvé', 'Rejeté', 'Annulé'] },
     { key: 'date_demande', label: 'Date de la demande',    type: 'date' },
+    { key: 'tache_concernee', label: 'Tâche(s) concernée(s)', type: 'text', placeholder: 'Nom ou numéro WBS de la tâche impactée…', fullWidth: true },
     { key: 'justification',label: 'Justification / Analyse', type: 'textarea', placeholder: 'Raisons, alternatives analysées…', fullWidth: true },
   ],
 }

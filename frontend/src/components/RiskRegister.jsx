@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Pencil, X, AlertCircle } from 'lucide-react'
+import { Pencil, X, AlertCircle, Siren, CheckCircle2 } from 'lucide-react'
 import { api } from '../api/odoo'
 
 const PROB_LEVELS  = ['L', 'M', 'H']
@@ -11,7 +11,7 @@ const PROB_LABELS  = { L: 'Faible', M: 'Moyen', H: 'Élevé' }
 const IMPACT_LABELS = { L: 'Faible', M: 'Modéré', H: 'Sévère' }
 
 const CATEGORIES = ['Technique', 'Organisationnel', 'Externe', 'Calendrier', 'Budget', 'Qualité', 'Autre']
-const STATUS_OPTS = ['Ouvert', 'En traitement', 'Clos']
+const STATUS_OPTS = ['Ouvert', 'En traitement', 'Déclenché', 'Clos']
 
 const RISK_RE  = /^(\[RISK\]|\[RISQUE\])/i
 const ISSUE_RE = /^(\[ISSUE\]|\[PROBLEME\])/i
@@ -40,6 +40,13 @@ function riskLevel(score) {
   return            { label: 'Faible',    color: '#22c55e', bg: '#f0fdf4' }
 }
 
+function statusStyle(status) {
+  if (status === 'Clos')         return { background: '#f0fdf4', color: '#16a34a' }
+  if (status === 'Déclenché')    return { background: '#fef2f2', color: '#dc2626' }
+  if (status === 'En traitement') return { background: '#eff6ff', color: '#2563eb' }
+  return { background: '#fef9c3', color: '#92400e' }
+}
+
 function RiskRow({ task, projectId, onEdit }) {
   const meta = parseRiskMeta(task.description)
   const type = RISK_RE.test(task.name) ? 'RISQUE' : 'PROBLÈME'
@@ -47,15 +54,35 @@ function RiskRow({ task, projectId, onEdit }) {
   const score = riskScore(meta.prob, meta.impact)
   const level = riskLevel(score)
   const qc = useQueryClient()
+  const today = new Date().toISOString().split('T')[0]
 
   const del = useMutation({
     mutationFn: () => api.updateTask(task.id, { active: false }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['risks', projectId] })
-      toast.success('Supprimé')
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['risks', projectId] }); toast.success('Supprimé') },
     onError: (e) => toast.error(e.message),
   })
+
+  const trigger = useMutation({
+    mutationFn: () => {
+      const newMeta = { ...meta, status: 'Déclenché', triggered_date: today }
+      return api.updateTask(task.id, { description: encodeMeta(task.description, newMeta) })
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['risks', projectId] }); toast.success('Risque déclenché — suivi activé') },
+    onError: (e) => toast.error(e.message),
+  })
+
+  const resolve = useMutation({
+    mutationFn: () => {
+      const newMeta = { ...meta, status: 'Clos', resolved_date: today }
+      return api.updateTask(task.id, { description: encodeMeta(task.description, newMeta) })
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['risks', projectId] }); toast.success('Risque résolu !') },
+    onError: (e) => toast.error(e.message),
+  })
+
+  const resolutionDays = meta.triggered_date && meta.resolved_date
+    ? Math.round((new Date(meta.resolved_date) - new Date(meta.triggered_date)) / 86400000)
+    : null
 
   return (
     <tr style={{ fontSize: '.8rem', borderBottom: '1px solid var(--border)', background: level.bg + '44' }}>
@@ -87,13 +114,36 @@ function RiskRow({ task, projectId, onEdit }) {
       </td>
       <td style={{ padding: '6px 8px', color: 'var(--text-muted)' }}>{meta.owner || '—'}</td>
       <td style={{ padding: '6px 8px' }}>
-        <span style={{
-          fontSize: '.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 700,
-          background: meta.status === 'Clos' ? '#f0fdf4' : meta.status === 'En traitement' ? '#eff6ff' : '#fef9c3',
-          color: meta.status === 'Clos' ? '#16a34a' : meta.status === 'En traitement' ? '#2563eb' : '#92400e',
-        }}>{meta.status || 'Ouvert'}</span>
+        <span style={{ fontSize: '.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 700, ...statusStyle(meta.status || 'Ouvert') }}>
+          {meta.status || 'Ouvert'}
+        </span>
+      </td>
+      <td style={{ padding: '6px 8px', textAlign: 'center', whiteSpace: 'nowrap', fontSize: '.72rem' }}>
+        {resolutionDays !== null
+          ? <span style={{ color: '#16a34a', fontWeight: 700 }}>Δ {resolutionDays}j</span>
+          : meta.triggered_date
+          ? <span style={{ color: '#f97316' }}>⏳ En cours</span>
+          : <span style={{ color: 'var(--text-muted)' }}>—</span>}
       </td>
       <td style={{ padding: '6px 4px', whiteSpace: 'nowrap' }}>
+        {meta.status !== 'Déclenché' && meta.status !== 'Clos' && (
+          <button onClick={() => trigger.mutate()} disabled={trigger.isPending}
+            title="Ce risque s'est produit"
+            style={{ fontSize: '.63rem', color: '#dc2626', cursor: 'pointer',
+              background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 4,
+              padding: '2px 5px', marginRight: 3, fontWeight: 700 }}>
+            🔴 Arrivé
+          </button>
+        )}
+        {meta.triggered_date && meta.status !== 'Clos' && (
+          <button onClick={() => resolve.mutate()} disabled={resolve.isPending}
+            title="Ce risque a été résolu"
+            style={{ fontSize: '.63rem', color: '#16a34a', cursor: 'pointer',
+              background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 4,
+              padding: '2px 5px', marginRight: 3, fontWeight: 700 }}>
+            ✅ Réglé
+          </button>
+        )}
         <button onClick={() => onEdit(task)} style={{ fontSize: '.75rem', color: 'var(--primary)', cursor: 'pointer',
           background: 'none', border: 'none', padding: '2px 4px' }}><Pencil size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /></button>
         <button onClick={() => del.mutate()} style={{ fontSize: '.75rem', color: 'var(--danger)', cursor: 'pointer',
@@ -155,7 +205,12 @@ export default function RiskRegister({ projectId }) {
     const taskName = `${prefix} ${form.name.trim()}`
     const meta = { prob: form.prob, impact: form.impact, category: form.category,
       treatment: form.treatment, owner: form.owner, status: form.status }
-    const description = encodeMeta('', meta)
+    if (editTask) {
+      const existing = parseRiskMeta(editTask.description)
+      if (existing.triggered_date) meta.triggered_date = existing.triggered_date
+      if (existing.resolved_date)  meta.resolved_date  = existing.resolved_date
+    }
+    const description = encodeMeta(editTask ? editTask.description : '', meta)
 
     if (editTask) {
       updateRisk.mutate({ id: editTask.id, data: { name: taskName, description } })
@@ -197,7 +252,7 @@ export default function RiskRegister({ projectId }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.82rem' }}>
             <thead>
               <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
-                {['Type', 'Description', 'Prob.', 'Impact', 'Niveau', 'Traitement', 'Propriétaire', 'Statut', ''].map(h => (
+                {['Type', 'Description', 'Prob.', 'Impact', 'Niveau', 'Traitement', 'Propriétaire', 'Statut', 'Résolution', ''].map(h => (
                   <th key={h} style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700,
                     fontSize: '.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{h}</th>
                 ))}
