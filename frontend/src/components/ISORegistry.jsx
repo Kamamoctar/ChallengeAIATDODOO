@@ -119,6 +119,13 @@ export default function ISORegistry({
 
   const items = allTasks.filter(t => re.test(t.name))
 
+  // Livrables du projet (pour rattacher chaque élément à un livrable)
+  const deliverables = allTasks
+    .filter(t => /^\[DELIVERABLE\]/i.test(t.name))
+    .map(t => ({ id: t.id, name: t.name.replace(/^\[DELIVERABLE\]\s*/i, '').trim() }))
+  const deliverableName = Object.fromEntries(deliverables.map(d => [String(d.id), d.name]))
+  const showDeliverable = prefix !== 'DELIVERABLE'   // un livrable ne se rattache pas à lui-même
+
   const createItem = useMutation({
     mutationFn: (data) => api.createTask(data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['task-tree', projectId] }); toast.success('Ajouté'); setShowForm(false) },
@@ -139,7 +146,7 @@ export default function ISORegistry({
 
   function openCreate() {
     setEditTask(null)
-    setForm(Object.fromEntries(fields.map(f => [f.key, f.default || ''])))
+    setForm({ ...Object.fromEntries(fields.map(f => [f.key, f.default || ''])), deliverable_id: '' })
     setShowForm(true)
   }
 
@@ -147,7 +154,10 @@ export default function ISORegistry({
     const meta = parseMeta(task.description)
     const namePart = task.name.replace(re, '').trim()
     setEditTask(task)
-    setForm(Object.fromEntries(fields.map(f => [f.key, meta[f.key] ?? (f.key === nameField ? namePart : '')])))
+    setForm({
+      ...Object.fromEntries(fields.map(f => [f.key, meta[f.key] ?? (f.key === nameField ? namePart : '')])),
+      deliverable_id: meta.deliverable_id ?? '',
+    })
     setShowForm(true)
   }
 
@@ -204,6 +214,11 @@ export default function ISORegistry({
                     {col.label}
                   </th>
                 ))}
+                {showDeliverable && (
+                  <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, fontSize: '.67rem',
+                    color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em',
+                    borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap' }}>Livrable</th>
+                )}
                 <th style={{ width: 60, borderBottom: '2px solid var(--border)' }} />
               </tr>
             </thead>
@@ -226,6 +241,12 @@ export default function ISORegistry({
                         </td>
                       )
                     })}
+                    {showDeliverable && (
+                      <td style={{ padding: '8px 10px', fontSize: '.78rem', color: 'var(--text-muted)',
+                        maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {deliverableName[String(meta.deliverable_id)] || '—'}
+                      </td>
+                    )}
                     <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
                       <button onClick={() => openEdit(task)}
                         style={{ fontSize: '.75rem', color: 'var(--primary)', cursor: 'pointer', background: 'none', border: 'none', padding: '2px 4px' }}>
@@ -259,6 +280,22 @@ export default function ISORegistry({
                 <FormField field={field} value={form[field.key]} onChange={v => f(field.key, v)} />
               </div>
             ))}
+            {showDeliverable && (
+              <div className="form-group" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
+                <label>Livrable associé</label>
+                <select value={form.deliverable_id || ''} onChange={e => f('deliverable_id', e.target.value)}
+                  style={{ width: '100%', padding: '.55rem .75rem', border: '1.5px solid var(--border)',
+                    borderRadius: 8, font: 'inherit', fontSize: '.9rem', background: 'var(--bg)' }}>
+                  <option value="">— Aucun —</option>
+                  {deliverables.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+                {deliverables.length === 0 && (
+                  <span style={{ fontSize: '.7rem', color: 'var(--text-muted)' }}>
+                    Aucun livrable encore : créez-en dans l'onglet « Livrables ».
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '.5rem', marginTop: '.85rem' }}>
             <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSubmit}

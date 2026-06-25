@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { startOfWeek, addWeeks, addDays, format, parseISO, isSameDay, differenceInMinutes } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { CornerDownLeft, Target, Clock, Folder, MapPin, Video } from 'lucide-react'
+import { CornerDownLeft, Target, Clock, Folder, MapPin, Video, CalendarPlus } from 'lucide-react'
 import { api } from '../api/odoo'
 import { useTeam } from '../context/TeamContext'
 import EmployeeToggle from '../components/EmployeeToggle'
+import NewEventModal from '../components/NewEventModal'
 
 // Une couleur stable par projet (pour repérer d'un coup d'œil).
 const PALETTE = ['#0a4b8b', '#139cbc', '#1c9a97', '#b45309', '#7c3aed', '#0891b2', '#65a30d', '#d30731']
@@ -17,10 +18,9 @@ const dayKey = (dt) => (dt ? dt.slice(0, 10) : '')        // -> "2026-06-23"
 const iso = (s) => parseISO(s.replace(' ', 'T'))
 
 export default function Week() {
-  const { active } = useTeam()
-  const userId = active.id === parseInt(import.meta.env.VITE_EMPLOYEE_A_ID || '0')
-    ? parseInt(import.meta.env.VITE_EMPLOYEE_A_USER_ID || '0')
-    : parseInt(import.meta.env.VITE_EMPLOYEE_B_USER_ID || '0')
+  const { active, userId, isAll } = useTeam()
+  const qc = useQueryClient()
+  const [showNew, setShowNew] = useState(false)
 
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
   const startStr = format(weekStart, 'yyyy-MM-dd')
@@ -52,8 +52,23 @@ export default function Week() {
             RDV & échéances · {active.name.split(' ')[0]}
           </div>
         </div>
-        <EmployeeToggle />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+          {!isAll && (
+            <button className="btn btn-primary btn-sm" onClick={() => setShowNew(true)}>
+              <CalendarPlus size={14} style={{ verticalAlign: '-2px' }} /> Nouveau RDV
+            </button>
+          )}
+          <EmployeeToggle />
+        </div>
       </header>
+
+      {isAll && (
+        <div style={{ padding: '.6rem 1rem', background: 'var(--warning-light)', color: '#92400e',
+          fontSize: '.8rem', borderBottom: '1px solid var(--border)', lineHeight: 1.5 }}>
+          <b>Profil de consultation.</b> Sélectionnez un chef de projet (en haut à droite)
+          pour voir son agenda et créer des rendez-vous.
+        </div>
+      )}
 
       {/* Barre de navigation entre semaines */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -143,6 +158,10 @@ export default function Week() {
           </div>
         )}
       </main>
+
+      <NewEventModal open={showNew} onClose={() => setShowNew(false)} userId={userId}
+        defaultDate={startStr}
+        onCreated={() => qc.invalidateQueries({ queryKey: ['cal-week'] })} />
     </div>
   )
 }

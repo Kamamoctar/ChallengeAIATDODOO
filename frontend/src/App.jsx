@@ -12,6 +12,7 @@ import Focus from './pages/Focus'
 import Week from './pages/Week'
 import Kanban from './pages/Kanban'
 import FloatingTimer from './components/FloatingTimer'
+import OverdueReminder from './components/OverdueReminder'
 import SearchModal from './components/SearchModal'
 import ThemeSwitch from './components/ThemeSwitch'
 import { useTeam } from './context/TeamContext'
@@ -117,13 +118,21 @@ export default function App() {
         <nav className="sidebar-nav">
           {NAV.map(n => (
             <NavLink key={n.to} to={n.to} end={n.end}>
-              <span className="nav-icon"><n.icon size={20} /></span>
-              {n.label}
+              {({ isActive }) => (
+                <>
+                  <span className="nav-icon"><n.icon size={20} fill={isActive ? 'currentColor' : 'none'} /></span>
+                  {n.label}
+                </>
+              )}
             </NavLink>
           ))}
           <NavLink to="/new">
-            <span className="nav-icon"><Plus size={20} /></span>
-            Nouvelle entrée
+            {({ isActive }) => (
+              <>
+                <span className="nav-icon"><Plus size={20} fill={isActive ? 'currentColor' : 'none'} /></span>
+                Nouvelle entrée
+              </>
+            )}
           </NavLink>
         </nav>
 
@@ -190,8 +199,12 @@ export default function App() {
       <nav className="bottom-nav">
         {NAV.map(n => (
           <NavLink key={n.to} to={n.to} end={n.end}>
-            <span className="nav-icon"><n.icon size={20} /></span>
-            <span>{n.label}</span>
+            {({ isActive }) => (
+              <>
+                <span className="nav-icon"><n.icon size={20} fill={isActive ? 'currentColor' : 'none'} /></span>
+                <span>{n.label}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -203,6 +216,9 @@ export default function App() {
 
       {/* ── SEARCH MODAL ───────────────────────────────── */}
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* ── RAPPEL DES TÂCHES EN RETARD ────────────────── */}
+      <OverdueReminder />
     </div>
   )
 }

@@ -13,7 +13,7 @@ import TaskTree from '../components/TaskTree'
 import ISOPhase from '../components/ISOPhase'
 import RiskRegister from '../components/RiskRegister'
 import ProjectCharter from '../components/ProjectCharter'
-import ISORegistry from '../components/ISORegistry'
+import ISORegistry, { encodeMeta } from '../components/ISORegistry'
 import {
   STAKEHOLDER_CONFIG, CHANGE_CONFIG, DELIVERABLE_CONFIG,
   LESSON_CONFIG, COMMS_CONFIG, PROCUREMENT_CONFIG,
@@ -36,6 +36,15 @@ const TABS = [
   { key: 'info',         label: 'Infos',         icon: Info          },
 ]
 
+// Regroupement des onglets en 4 familles pour alléger la barre.
+const GROUPS = [
+  { key: 'cadrage',   label: 'Cadrage',   icon: ClipboardList, tabs: ['charter', 'stakeholders', 'resources'] },
+  { key: 'execution', label: 'Exécution', icon: FolderTree,    tabs: ['wbs', 'risks', 'quality'] },
+  { key: 'livrables', label: 'Livrables', icon: CheckCircle2,  tabs: ['deliverables', 'changes', 'lessons'] },
+  { key: 'annexes',   label: 'Annexes',   icon: Info,          tabs: ['comms', 'procurement', 'docs', 'info'] },
+]
+const groupOfTab = (tabKey) => GROUPS.find(g => g.tabs.includes(tabKey))?.key || 'execution'
+
 export default function ProjectDetail() {
   const { id } = useParams()
   const projectId = parseInt(id)
@@ -44,6 +53,8 @@ export default function ProjectDetail() {
   const { active } = useTeam()
 
   const [tab, setTab] = useState('wbs')
+  const [group, setGroup] = useState('execution')
+  const [showMoreActions, setShowMoreActions] = useState(false)
   const [showNewTask, setShowNewTask] = useState(false)
   const [showMilestone, setShowMilestone] = useState(false)
   const [showBlocker, setShowBlocker] = useState(false)
@@ -56,6 +67,7 @@ export default function ProjectDetail() {
   const [blockerText, setBlockerText] = useState('')
   const [docLink, setDocLink] = useState('')
   const [docTitle, setDocTitle] = useState('')
+  const [newTaskDeliverable, setNewTaskDeliverable] = useState('')
 
   const { data: project, isLoading: loadingProject } = useQuery({
     queryKey: ['project', projectId],
@@ -75,7 +87,7 @@ export default function ProjectDetail() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['task-tree', projectId] })
       toast.success('Créé !')
-      setNewTaskName(''); setNewTaskDeadline(''); setShowNewTask(false)
+      setNewTaskName(''); setNewTaskDeadline(''); setShowNewTask(false); setNewTaskDeliverable('')
       setMilestoneText(''); setMilestoneDate(''); setShowMilestone(false)
     },
     onError: (e) => toast.error(e.message),
@@ -112,6 +124,11 @@ export default function ProjectDetail() {
       ? parseInt(import.meta.env.VITE_EMPLOYEE_A_USER_ID || '0')
       : parseInt(import.meta.env.VITE_EMPLOYEE_B_USER_ID || '0')
   }
+
+  // Livrables du projet (pour rattacher une tâche WBS à un livrable)
+  const deliverables = allTasks
+    .filter(t => /^\[DELIVERABLE\]/i.test(t.name))
+    .map(t => ({ id: t.id, name: t.name.replace(/^\[DELIVERABLE\]\s*/i, '').trim() }))
 
   // Stats
   const wbsTasks     = allTasks.filter(t => !/^\[(RISK|RISQUE|ISSUE|PROBLEME|CHARTER|STAKEHOLDER|CHANGE|DELIVERABLE|LESSON|COMMS|PROCUREMENT|RESOURCE|QUALITY|MILESTONE)\]/i.test(t.name))
@@ -182,25 +199,32 @@ export default function ProjectDetail() {
         <ISOPhase projectId={projectId} description={project?.description} allTasks={allTasks} />
       </div>
 
-      {/* ── QUICK ACTIONS ───────────────────────── */}
+      {/* ── QUICK ACTIONS (allégées) ────────────── */}
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)',
-        padding: '.5rem 1rem', display: 'flex', gap: '.4rem', flexWrap: 'wrap' }}>
+        padding: '.5rem 1rem', display: 'flex', gap: '.4rem', alignItems: 'center', position: 'relative' }}>
         <button onClick={() => { closeAllPanels(); setShowNewTask(t => !t) }} className="btn btn-primary btn-sm">+ Tâche</button>
-        <button onClick={() => { closeAllPanels(); setShowMilestone(m => !m) }}
-          style={{ background: '#f3e8ff', border: '1px solid #c4b5fd', color: '#7c3aed',
-            borderRadius: 6, padding: '5px 10px', fontSize: '.78rem', cursor: 'pointer', fontWeight: 600 }}>
-          ◆ Jalon
-        </button>
-        <button onClick={() => { closeAllPanels(); setShowBlocker(b => !b) }}
-          style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626',
-            borderRadius: 6, padding: '5px 10px', fontSize: '.78rem', cursor: 'pointer', fontWeight: 600 }}>
-          <AlertCircle size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Blocage
-        </button>
-        <button onClick={() => { closeAllPanels(); setShowDocLink(d => !d) }}
-          style={{ background: 'var(--bg)', border: '1px solid var(--border)',
-            borderRadius: 6, padding: '5px 10px', fontSize: '.78rem', cursor: 'pointer' }}>
-          <Paperclip size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> Doc
-        </button>
+        <button onClick={() => setShowMoreActions(v => !v)} className="btn btn-ghost btn-sm">+ Plus ▾</button>
+        {showMoreActions && (
+          <div style={{ position: 'absolute', top: '100%', left: '4.5rem', marginTop: 2, zIndex: 20,
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,
+            boxShadow: 'var(--shadow-md)', overflow: 'hidden', minWidth: 150 }}>
+            <button onClick={() => { closeAllPanels(); setShowMilestone(true); setShowMoreActions(false) }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '.5rem .75rem',
+                background: 'none', border: 'none', cursor: 'pointer', fontSize: '.8rem', color: '#7c3aed', fontWeight: 600 }}>
+              ◆ Jalon
+            </button>
+            <button onClick={() => { closeAllPanels(); setShowBlocker(true); setShowMoreActions(false) }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '.5rem .75rem',
+                background: 'none', border: 'none', cursor: 'pointer', fontSize: '.8rem', color: '#dc2626', fontWeight: 600 }}>
+              <AlertCircle size={13} style={{ verticalAlign: '-2px' }} /> Blocage
+            </button>
+            <button onClick={() => { closeAllPanels(); setShowDocLink(true); setShowMoreActions(false) }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '.5rem .75rem',
+                background: 'none', border: 'none', cursor: 'pointer', fontSize: '.8rem', color: 'var(--text)' }}>
+              <Paperclip size={13} style={{ verticalAlign: '-2px' }} /> Doc
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── PANELS ──────────────────────────────── */}
@@ -221,9 +245,16 @@ export default function ProjectDetail() {
             <input type="date" value={newTaskDeadline} onChange={e => setNewTaskDeadline(e.target.value)}
               style={{ flex: 1, padding: '.3rem .5rem', border: '1px solid #c7d2fe', borderRadius: 6, fontSize: '.8rem' }} />
           </div>
+          <select value={newTaskDeliverable} onChange={e => setNewTaskDeliverable(e.target.value)}
+            style={{ width: '100%', padding: '.4rem .5rem', border: '1px solid #c7d2fe', borderRadius: 6,
+              fontSize: '.85rem', marginBottom: '.4rem', background: 'var(--bg)' }}>
+            <option value="">Livrable associé — Aucun</option>
+            {deliverables.map(d => <option key={d.id} value={d.id}>Livrable : {d.name}</option>)}
+          </select>
           <PanelButtons
             onSave={() => createTask.mutate({ name: newTaskName, project_id: projectId,
-              priority: newTaskPrio, date_deadline: newTaskDeadline || undefined, user_ids: [getUserId()] })}
+              priority: newTaskPrio, date_deadline: newTaskDeadline || undefined, user_ids: [getUserId()],
+              description: newTaskDeliverable ? encodeMeta({ deliverable_id: newTaskDeliverable }) : undefined })}
             onCancel={() => setShowNewTask(false)}
             disabled={!newTaskName || createTask.isPending}
             loading={createTask.isPending} label="Créer" />
@@ -281,23 +312,47 @@ export default function ProjectDetail() {
         </Panel>
       )}
 
-      {/* ── TAB BAR ─────────────────────────────── */}
+      {/* ── FAMILLES D'ONGLETS (niveau 1) ─────────── */}
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)',
-        display: 'flex', overflowX: 'auto', scrollbarWidth: 'none' }}>
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            style={{
-              flexShrink: 0, padding: '.55rem .7rem', border: 'none', cursor: 'pointer',
-              fontSize: '.72rem', fontWeight: tab === t.key ? 800 : 500,
-              color: tab === t.key ? 'var(--primary)' : 'var(--text-muted)',
-              background: 'transparent',
-              borderBottom: tab === t.key ? '2.5px solid var(--primary)' : '2.5px solid transparent',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
-            }}>
-            <span style={{ fontSize: '.9rem' }}><t.icon size={16} /></span>
-            {t.label}
-          </button>
-        ))}
+        display: 'flex', gap: '.25rem', padding: '0 .5rem' }}>
+        {GROUPS.map(g => {
+          const isActive = group === g.key
+          return (
+            <button key={g.key} onClick={() => { setGroup(g.key); setTab(g.tabs[0]) }}
+              style={{
+                flex: 1, padding: '.6rem .4rem', border: 'none', cursor: 'pointer',
+                fontSize: '.78rem', fontWeight: isActive ? 800 : 600,
+                color: isActive ? 'var(--primary)' : 'var(--text-muted)', background: 'transparent',
+                borderBottom: isActive ? '2.5px solid var(--primary)' : '2.5px solid transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.35rem',
+              }}>
+              <g.icon size={15} fill={isActive ? 'currentColor' : 'none'} /> {g.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── SOUS-ONGLETS (niveau 2 : ceux de la famille active) ─── */}
+      <div style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)',
+        display: 'flex', gap: '.3rem', padding: '.4rem .5rem', overflowX: 'auto', scrollbarWidth: 'none' }}>
+        {(GROUPS.find(g => g.key === group)?.tabs || []).map(tk => {
+          const t = TABS.find(x => x.key === tk)
+          if (!t) return null
+          const isActive = tab === tk
+          return (
+            <button key={tk} onClick={() => setTab(tk)}
+              style={{
+                flexShrink: 0, padding: '.35rem .7rem', borderRadius: 20, cursor: 'pointer',
+                fontSize: '.74rem', fontWeight: isActive ? 700 : 500,
+                color: isActive ? '#fff' : 'var(--text-muted)',
+                background: isActive ? 'var(--primary)' : 'var(--surface)',
+                border: `1px solid ${isActive ? 'var(--primary)' : 'var(--border)'}`,
+                display: 'flex', alignItems: 'center', gap: '.3rem',
+              }}>
+              <t.icon size={13} /> {t.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* ── CONTENT ─────────────────────────────── */}

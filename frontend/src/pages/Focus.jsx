@@ -41,16 +41,12 @@ function UrgencyBadge({ deadline }) {
 }
 
 export default function Focus() {
-  const { active } = useTeam()
+  const { active, userId, isAll } = useTeam()
   const { isRunning, runningTaskId, start } = useTimer()
   const [focus, setFocus] = useState(loadFocus)
   const [showPicker, setShowPicker] = useState(false)
   const [logTask, setLogTask] = useState(null)
   const [search, setSearch] = useState('')
-
-  const userId = active.id === parseInt(import.meta.env.VITE_EMPLOYEE_A_ID || '0')
-    ? parseInt(import.meta.env.VITE_EMPLOYEE_A_USER_ID || '0')
-    : parseInt(import.meta.env.VITE_EMPLOYEE_B_USER_ID || '0')
 
   const qc = useQueryClient()
 
@@ -149,6 +145,14 @@ export default function Focus() {
         </div>
       </header>
 
+      {isAll && (
+        <div style={{ padding: '.6rem 1rem', background: 'var(--warning-light)', color: '#92400e',
+          fontSize: '.8rem', borderBottom: '1px solid var(--border)', lineHeight: 1.5 }}>
+          <b>Profil de consultation.</b> Sélectionnez un chef de projet (bouton en haut à droite)
+          pour voir et gérer ses tâches du jour.
+        </div>
+      )}
+
       {showPicker && (
         <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '1rem' }}>
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -228,7 +232,7 @@ export default function Focus() {
                   onClick={() => {
                     if (isThisRunning) return
                     if (isRunning) { toast.error("Arrêtez le timer en cours d'abord"); return }
-                    start({ taskId: task.id, projectId, taskName: task.name, projectName, employeeId: active.id })
+                    start({ taskId: task.id, projectId, taskName: task.name, projectName, employeeId: active.id, estimateHours: task.allocated_hours || 0 })
                   }}
                   style={{
                     flex: 1, background: isThisRunning ? '#dcfce7' : 'var(--primary)',

@@ -1,10 +1,16 @@
-import { Clock, Brain, Play, Square, Pause, Circle, X } from 'lucide-react'
-import { useTimer, formatElapsed } from '../context/TimerContext'
+import { Clock, Brain, Play, Square, Pause, Circle, X, Timer } from 'lucide-react'
+import { useTimer, formatElapsed, POMODORO_CHOICES } from '../context/TimerContext'
 
 export default function FloatingTimer() {
-  const { timer, elapsed, isRunning, isPaused, autoStopped, stop, pause, resume, cancel } = useTimer()
+  const { timer, elapsed, isRunning, isPaused, autoStopped, pomodoros, estimateHours,
+    pomodoroMin, setPomodoroMin, stop, pause, resume, cancel } = useTimer()
 
   if (!isRunning) return null
+
+  // Comparaison au temps estimé de la tâche
+  const estimateMin = Math.round((estimateHours || 0) * 60)
+  const doneMin = Math.round(elapsed / 60)
+  const overEstimate = estimateMin > 0 && doneMin > estimateMin
 
   if (autoStopped) {
     return (
@@ -15,11 +21,33 @@ export default function FloatingTimer() {
         boxShadow: '0 8px 32px rgba(10,75,139,.4)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '.35rem' }}>
-          <div style={{ fontWeight: 800, fontSize: '.9rem' }}><Clock size={15} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />45 min de focus accomplis !</div>
+          <div style={{ fontWeight: 800, fontSize: '.9rem' }}>
+            <Timer size={15} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />
+            Pomodoro {pomodoros} terminé !
+          </div>
           <span style={{ fontSize: '1.1rem', fontWeight: 800 }}>{formatElapsed(elapsed)}</span>
         </div>
-        <div style={{ fontSize: '.78rem', opacity: .85, marginBottom: '.8rem', lineHeight: 1.4 }}>
-          Temps de prendre une pause <Brain size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> — le temps sera enregistré quand vous stopperez.
+        <div style={{ fontSize: '.78rem', opacity: .9, marginBottom: '.6rem', lineHeight: 1.4 }}>
+          Temps de prendre une pause <Brain size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} />.
+          {estimateMin > 0 && (
+            <span style={{ display: 'block', marginTop: 3, fontWeight: 700 }}>
+              {doneMin} min faites / estimé {estimateMin} min
+              {overEstimate ? ` — dépassement de ${doneMin - estimateMin} min` : ' — dans les temps'}
+            </span>
+          )}
+        </div>
+        {/* Réglage de la durée du pomodoro */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', marginBottom: '.7rem', fontSize: '.72rem' }}>
+          <span style={{ opacity: .8 }}>Durée d'un pomodoro :</span>
+          {POMODORO_CHOICES.map(m => (
+            <button key={m} onClick={() => setPomodoroMin(m)}
+              style={{ border: '1px solid rgba(255,255,255,.4)', borderRadius: 14, padding: '2px 9px',
+                cursor: 'pointer', fontWeight: 700, fontSize: '.72rem',
+                background: pomodoroMin === m ? '#fff' : 'transparent',
+                color: pomodoroMin === m ? 'var(--primary)' : '#fff' }}>
+              {m} min
+            </button>
+          ))}
         </div>
         <div style={{ display: 'flex', gap: '.5rem' }}>
           <button onClick={resume}
@@ -62,6 +90,13 @@ export default function FloatingTimer() {
       <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: 46, textAlign: 'center' }}>
         {formatElapsed(elapsed)}
       </span>
+      {pomodoros > 0 && (
+        <span title={`${pomodoros} pomodoro(s) accomplis`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: '.72rem',
+            background: 'rgba(255,255,255,.2)', borderRadius: 12, padding: '1px 7px' }}>
+          <Timer size={12} /> {pomodoros}
+        </span>
+      )}
       {timer?.taskName && (
         <span style={{ fontSize: '.68rem', opacity: .75, maxWidth: 72,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

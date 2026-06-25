@@ -7,10 +7,16 @@ import { queueAdd } from '../utils/offlineQueue'
 
 const TimerContext = createContext(null)
 const STORAGE_KEY = 'odoo_timer_v2'
-const AUTO_STOP_SECS = 45 * 60   // 45 minutes
+const POMODORO_KEY = 'pomodoro_minutes'
+export const POMODORO_CHOICES = [5, 15, 25, 50]   // durées proposées (5 = démo rapide)
 
 function loadTimer() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) } catch { return null }
+}
+
+function loadPomodoroMin() {
+  const v = parseInt(localStorage.getItem(POMODORO_KEY) || '25', 10)
+  return POMODORO_CHOICES.includes(v) ? v : 25
 }
 
 export function TimerProvider({ children }) {
@@ -18,7 +24,13 @@ export function TimerProvider({ children }) {
   const [timer, setTimer] = useState(loadTimer)
   const [elapsed, setElapsed] = useState(0)
   const [autoStopped, setAutoStopped] = useState(false)
+  const [pomodoroMin, setPomodoroMinState] = useState(loadPomodoroMin)
   const intervalRef = useRef(null)
+
+  function setPomodoroMin(m) {
+    localStorage.setItem(POMODORO_KEY, String(m))
+    setPomodoroMinState(m)
+  }
 
   const computeElapsed = useCallback((t) => {
     if (!t) return 0
@@ -40,7 +52,9 @@ export function TimerProvider({ children }) {
       const secs = computeElapsed(timer)
       setElapsed(secs)
 
-      if (secs >= AUTO_STOP_SECS) {
+      // Fin d'un pomodoro : on met en pause et on incrémente le compteur.
+      const threshold = ((timer.pomodoros || 0) + 1) * pomodoroMin * 60
+      if (secs >= threshold) {
         clearInterval(intervalRef.current)
         const now = Date.now()
         const updated = {
@@ -48,6 +62,7 @@ export function TimerProvider({ children }) {
           workMs: (timer.workMs || 0) + (now - timer.lastStart),
           paused: true,
           lastStart: null,
+          pomodoros: (timer.pomodoros || 0) + 1,
         }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
         setTimer(updated)
@@ -59,11 +74,11 @@ export function TimerProvider({ children }) {
     tick()
     intervalRef.current = setInterval(tick, 1000)
     return () => clearInterval(intervalRef.current)
-  }, [timer, computeElapsed])
+  }, [timer, computeElapsed, pomodoroMin])
 
   function start(task) {
     clearInterval(intervalRef.current)
-    const t = { ...task, workMs: 0, lastStart: Date.now(), paused: false }
+    const t = { ...task, workMs: 0, lastStart: Date.now(), paused: false, pomodoros: 0 }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(t))
     setTimer(t)
     setAutoStopped(false)
@@ -122,7 +137,16 @@ export function TimerProvider({ children }) {
           await api.createTimesheet(entry)
           qc.invalidateQueries({ queryKey: ['timesheets-today'] })
           qc.invalidateQueries({ queryKey: ['timesheets-2weeks'] })
-          toast.success(`${hours}h enregistrées → ${saved.projectName}`)
+          // Comparaison au temps estimé de la tâche (allocated_hours)
+          let extra = ''
+          if (saved.pomodoros) extra += ` · ${saved.pomodoros} pomodoro${saved.pomodoros > 1 ? 's' : ''}`
+          if (saved.estimateHours > 0) {
+            const diff = hours - saved.estimateHours
+            extra += diff <= 0
+              ? ` · estimé ${saved.estimateHours}h, dans les temps`
+              : ` · estimé ${saved.estimateHours}h, dépassé de ${diff.toFixed(1)}h`
+          }
+          toast.success(`${hours}h enregistrées → ${saved.projectName}${extra}`, { duration: 6000 })
         } catch (e) {
           queueAdd(entry)
           toast.error(`Erreur réseau — ${hours}h sauvegardées localement`, { duration: 5000 })
@@ -147,6 +171,9 @@ export function TimerProvider({ children }) {
       isPaused: timer?.paused || false,
       autoStopped,
       runningTaskId: timer?.taskId || null,
+      pomodoros: timer?.pomodoros || 0,
+      estimateHours: timer?.estimateHours || 0,
+      pomodoroMin, setPomodoroMin,
       start, pause, resume, stop, cancel,
     }}>
       {children}

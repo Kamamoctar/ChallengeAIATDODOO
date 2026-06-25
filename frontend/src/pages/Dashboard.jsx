@@ -24,8 +24,8 @@ const WEEKLY_GOAL = 40
 
 /* ─── Root ────────────────────────────────────────────────────── */
 export default function Dashboard() {
-  const { active, members } = useTeam()
-  const compare = members?.find(m => m.id !== active.id)
+  const { active, members, userId, isAll } = useTeam()
+  const compare = members?.find(m => m.id !== active.id && m.id > 0)
   const [tab, setTab] = useState('personal')
   const today = format(new Date(), 'EEEE d MMMM', { locale: fr })
 
@@ -50,11 +50,6 @@ export default function Dashboard() {
     staleTime: 120_000,
   })
 
-  // Identifiant "utilisateur" (res.users) du membre sélectionné, pour retrouver SES tâches.
-  const userId = active.id === parseInt(import.meta.env.VITE_EMPLOYEE_A_ID || '0')
-    ? parseInt(import.meta.env.VITE_EMPLOYEE_A_USER_ID || '0')
-    : parseInt(import.meta.env.VITE_EMPLOYEE_B_USER_ID || '0')
-
   const { data: myTasks = [] } = useQuery({
     queryKey: ['my-tasks-dash', userId],
     queryFn: () => api.getMyTasks(userId),
@@ -65,6 +60,11 @@ export default function Dashboard() {
   // Liste des projets du membre = projets distincts tirés de ses tâches,
   // enrichis avec la date d'échéance et la phase (depuis le détail des projets).
   const myProjects = useMemo(() => {
+    // Profil « tous projets » : on liste l'ensemble des projets.
+    if (isAll) {
+      return projects.map(p => ({ id: p.id, name: p.name, date: p.date || null,
+        description: p.description || '', taskCount: null }))
+    }
     const counts = {}
     myTasks.forEach(t => {
       const id = Array.isArray(t.project_id) ? t.project_id[0] : null
@@ -79,7 +79,7 @@ export default function Dashboard() {
         return { ...p, date: detail?.date || null, description: detail?.description || '' }
       })
       .sort((a, b) => b.taskCount - a.taskCount)
-  }, [myTasks, projects])
+  }, [myTasks, projects, isAll])
 
   useDeadlineNotifications(projects)
 
@@ -121,7 +121,7 @@ export default function Dashboard() {
               background: 'none', border: 'none', borderRadius: 0, cursor: 'pointer',
               transition: 'all .15s',
             }}>
-            <t.icon size={14} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {t.label}
+            <t.icon size={14} fill={tab === t.id ? 'currentColor' : 'none'} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {t.label}
           </button>
         ))}
       </div>
@@ -252,9 +252,11 @@ function PersonalTab({
                       <phase.icon size={12} style={{ verticalAlign: '-2px' }} /> {phase.label}
                     </span>
                   )}
-                  <span style={{ fontSize: '.68rem', color: 'var(--text-muted)' }}>
-                    {p.taskCount} tâche{p.taskCount > 1 ? 's' : ''}
-                  </span>
+                  {p.taskCount != null && (
+                    <span style={{ fontSize: '.68rem', color: 'var(--text-muted)' }}>
+                      {p.taskCount} tâche{p.taskCount > 1 ? 's' : ''}
+                    </span>
+                  )}
                 </div>
               </div>
               {daysLeft !== null && (

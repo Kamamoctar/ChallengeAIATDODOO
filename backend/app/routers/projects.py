@@ -8,7 +8,8 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 PROJ_FIELDS = ["id", "name", "user_id", "date", "description", "tag_ids", "company_id"]
 TASK_FIELDS = ["id", "name", "priority", "stage_id", "child_ids", "user_ids",
-               "parent_id", "date_deadline", "description", "sequence"]
+               "parent_id", "date_deadline", "description", "sequence",
+               "date_start", "depend_on_ids", "allocated_hours"]
 
 
 class ProjectCreate(BaseModel):

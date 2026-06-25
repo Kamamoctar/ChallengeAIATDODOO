@@ -30,6 +30,10 @@ export const api = {
 
   // Tasks
   getMyTasks: (userId) => request('GET', `/api/tasks/mine?user_id=${userId}`),
+  rescheduleTask: (id, dates) => request('POST', `/api/tasks/${id}/reschedule`, dates),
+  addDependency: (id, predecessorId) => request('POST', `/api/tasks/${id}/depend-on`, { predecessor_id: predecessorId }),
+  removeDependency: (id, predecessorId) => request('POST', `/api/tasks/${id}/undepend`, { predecessor_id: predecessorId }),
+  bulkSchedule: (items) => request('POST', `/api/tasks/bulk-schedule`, { items }),
   getIndependentTasks: (userId) => request('GET', `/api/tasks/independent?user_id=${userId}`),
   getTask: (id) => request('GET', `/api/tasks/${id}`),
   createTask: (data) => request('POST', '/api/tasks', data),
@@ -39,6 +43,8 @@ export const api = {
   // Calendar (semaine)
   getCalendarWeek: (userId, start, days = 7) =>
     request('GET', `/api/calendar/week?user_id=${userId}&start=${start}&days=${days}`),
+  getResourceTypes: () => request('GET', '/api/calendar/resource-types'),
+  createEvent: (data) => request('POST', '/api/calendar/event', data),
 
   // Timesheets
   getToday: (employeeId) => request('GET', `/api/timesheets/today?employee_id=${employeeId}`),

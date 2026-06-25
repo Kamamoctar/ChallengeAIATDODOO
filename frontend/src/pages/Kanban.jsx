@@ -4,8 +4,9 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/odoo'
 import { useTeam } from '../context/TeamContext'
 import EmployeeToggle from '../components/EmployeeToggle'
+import GanttChart from '../components/GanttChart'
 import toast from 'react-hot-toast'
-import { Search, Star, Folder, Calendar, AlertTriangle, Check } from 'lucide-react'
+import { Search, Star, Folder, Calendar, AlertTriangle, Check, LayoutGrid, GanttChartSquare } from 'lucide-react'
 
 const DEFAULT_STAGES = [
   { id: 'todo',        name: 'À faire',    color: 'var(--text-muted)' },
@@ -23,14 +24,11 @@ function normalizeStageKey(name) {
 }
 
 export default function Kanban() {
-  const { active } = useTeam()
+  const { active, userId, isAll } = useTeam()
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [selectedProject, setSelectedProject] = useState('all')
-
-  const userId = active.id === parseInt(import.meta.env.VITE_EMPLOYEE_A_ID || '0')
-    ? parseInt(import.meta.env.VITE_EMPLOYEE_A_USER_ID || '0')
-    : parseInt(import.meta.env.VITE_EMPLOYEE_B_USER_ID || '0')
+  const [view, setView] = useState('kanban')   // 'kanban' | 'gantt'
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['my-tasks', userId],
@@ -45,6 +43,14 @@ export default function Kanban() {
     staleTime: 300_000,
   })
 
+  // Profil « tous projets » : le sélecteur liste l'ensemble des projets.
+  const { data: allProjects = [] } = useQuery({
+    queryKey: ['projects-detail'],
+    queryFn: api.getProjectsDetail,
+    staleTime: 120_000,
+    enabled: isAll,
+  })
+
   const moveTask = useMutation({
     mutationFn: ({ id, stage_id }) => api.updateTask(id, { stage_id }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-tasks', userId] }),
@@ -57,10 +63,9 @@ export default function Kanban() {
     return s.reduce((best, cur) => cur.sequence > best.sequence ? cur : best).id
   }, [stages])
 
-  // Build column definitions from real stages or fallback
-  const columns = stages.length > 0
-    ? stages.map(s => ({ id: s.id, name: s.name, color: DEFAULT_STAGES.find(d => d.id === normalizeStageKey(s.name))?.color || 'var(--text-muted)' }))
-    : DEFAULT_STAGES
+  // 4 colonnes de statut (les étapes Odoo sont propres à chaque projet → on
+  // regroupe par nom normalisé pour une vue lisible).
+  const columns = DEFAULT_STAGES
 
   // Get unique projects in tasks
   const projects = [...new Map(
@@ -77,12 +82,8 @@ export default function Kanban() {
   // Group by stage
   function getTasksForColumn(col) {
     return filtered.filter(t => {
-      if (!t.stage_id) return col.id === 'todo' || col.name === 'À faire'
-      if (Array.isArray(t.stage_id)) {
-        if (stages.length > 0) return t.stage_id[0] === col.id
-        return normalizeStageKey(t.stage_id[1]) === col.id
-      }
-      return false
+      if (!Array.isArray(t.stage_id)) return col.id === 'todo'
+      return normalizeStageKey(t.stage_id[1]) === col.id
     })
   }
 
@@ -106,14 +107,28 @@ export default function Kanban() {
         <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)}
           style={{ padding: '.4rem .7rem', border: '1.5px solid var(--border)', borderRadius: 8,
             fontSize: '.82rem', maxWidth: 180, background: 'var(--bg)', color: 'var(--text)' }}>
-          <option value="all">Tous les projets</option>
-          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          <option value="all">{view === 'gantt' ? '— Choisir un projet —' : 'Tous les projets'}</option>
+          {(isAll ? allProjects : projects).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
+        <div className="employee-toggle" style={{ marginLeft: 'auto' }}>
+          <button className={view === 'kanban' ? 'active' : ''} onClick={() => setView('kanban')}
+            title="Vue Kanban">
+            <LayoutGrid size={14} fill={view === 'kanban' ? 'currentColor' : 'none'} style={{ verticalAlign: '-2px' }} /> Kanban
+          </button>
+          <button className={view === 'gantt' ? 'active' : ''} onClick={() => setView('gantt')}
+            title="Chronogramme (Gantt)">
+            <GanttChartSquare size={14} fill={view === 'gantt' ? 'currentColor' : 'none'} style={{ verticalAlign: '-2px' }} /> Chronogramme
+          </button>
+        </div>
       </div>
 
-      {isLoading && <div className="loading">Chargement…</div>}
+      {view === 'gantt' && (
+        <GanttChart projectId={selectedProject !== 'all' ? parseInt(selectedProject) : null} />
+      )}
 
-      {!isLoading && (
+      {view === 'kanban' && isLoading && <div className="loading">Chargement…</div>}
+
+      {view === 'kanban' && !isLoading && (
         <div style={{ flex: 1, overflowX: 'auto', display: 'flex', gap: '1rem',
           padding: '1rem', alignItems: 'flex-start', overflowY: 'hidden' }}>
           {columns.map(col => {

@@ -11,7 +11,7 @@ export default function EmployeeToggle() {
           className={active.id === m.id ? 'active' : ''}
           onClick={() => setActive(m.id)}
         >
-          {m.name.split(' ')[0]}
+          {m.short || m.name.split(' ')[0]}
         </button>
       ))}
     </div>

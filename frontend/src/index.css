@@ -199,7 +199,16 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
   color: var(--text-muted);
   letter-spacing: .02em;
 }
+.bottom-nav a { position: relative; transition: color .15s; }
 .bottom-nav a.active { color: var(--primary); }
+.bottom-nav a.active::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 22%; right: 22%;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--primary);
+}
 .bottom-nav a .nav-icon { font-size: 1.25rem; }
 
 /* ─── TOPBAR ───────────────────────────────────────────── */
