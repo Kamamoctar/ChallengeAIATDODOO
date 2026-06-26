@@ -1,7 +1,7 @@
 # Documentation Utilisateur
 # ATD — Application de Gestion de Projet
 
-**Version :** 1.2  
+**Version :** 1.3  
 **Date :** Juin 2026  
 **Équipe :** ATD  
 **Contact :** kamamoctar@gmail.com
@@ -25,6 +25,7 @@
 13. [Mode hors-ligne](#13-mode-hors-ligne)
 14. [Mode sombre](#14-mode-sombre)
 15. [Guide administrateur](#15-guide-administrateur)
+16. [Commandant — Assistant IA](#16-commandant--assistant-ia)
 
 ---
 
@@ -218,10 +219,22 @@ Dans chaque carte tâche, le bouton **✓** permet de déplacer directement la t
 La page **Projets** (icône 📁) affiche tous les projets. Un filtre de recherche est disponible en haut de la liste.
 
 Chaque projet affiche :
+- Un **point de santé coloré** à gauche du nom (calculé automatiquement depuis la deadline)
 - Le **nom** du projet
 - La **phase ISO 21500** actuelle (badge coloré)
 - La **deadline** si définie, en rouge si dépassée
-- Un indicateur **« En retard »** si la deadline est passée
+- Un **indicateur de santé textuel** en bas à droite de la carte
+
+#### Score de santé projet
+
+| Couleur | Signification | Critère |
+|---|---|---|
+| 🟢 Vert | En bonne voie | Deadline à plus de 7 jours |
+| 🟡 Orange | À surveiller | Deadline dans 7 jours ou moins |
+| 🔴 Rouge | En retard | Deadline dépassée |
+| ⚪ Gris | Pas de deadline | Aucune date de fin définie |
+
+Le texte associé précise le nombre de jours (ex : « En bonne voie (23j) », « En retard de 5j »).
 
 ### 6.2 Filtres de la liste
 
@@ -261,15 +274,36 @@ En appuyant sur un projet, on accède à sa fiche détaillée avec **13 onglets*
 
 ### 7.1 Score de conformité ISO 21500
 
-Un badge de conformité est affiché dans l'en-tête du projet :
+Un badge **ISO X/11** est affiché dans l'en-tête de la fiche projet, indiquant combien des 11 critères ISO 21500 sont remplis.
 
 | Couleur | Score | Signification |
 |---|---|---|
-| Vert | ≥ 80% | Projet bien documenté |
-| Orange | 50–79% | Documentation incomplète |
-| Rouge | < 50% | Documentation insuffisante |
+| Vert | ≥ 9/11 | Projet bien documenté |
+| Orange | 6–8/11 | Documentation incomplète |
+| Rouge | ≤ 5/11 | Documentation insuffisante |
 
-Le score est calculé automatiquement à partir de la présence des 11 éléments clés de la norme.
+#### Panneau de détail cliquable
+
+Cliquer sur le badge **ISO X/11 ▼** ouvre un panneau listant les 11 critères avec leur état :
+
+- **✅** — critère rempli
+- **⬜** — critère manquant
+
+Chaque critère manquant est un **lien cliquable** : appuyer dessus ferme le panneau et ouvre directement l'onglet correspondant pour compléter la documentation.
+
+| Critère | Onglet cible |
+|---|---|
+| Charte projet | Charte |
+| Parties prenantes | Parties prenantes |
+| WBS / tâches | WBS |
+| Registre des risques | Risques |
+| Livrables | Livrables |
+| Gestion des changements | Changements |
+| Leçons apprises | Leçons |
+| Plan de communication | Comm. |
+| Approvisionnements | Achats |
+| Ressources | Ressources |
+| Qualité | Qualité |
 
 ### 7.2 Description des onglets
 
@@ -332,6 +366,23 @@ Chaque risque ou problème suit un cycle de vie formalisé :
 **Boutons d'action rapide dans le tableau :**
 - **🔴 Arrivé** — Marque le risque comme déclenché et enregistre la date du jour
 - **✅ Réglé** — Clôture le risque et affiche le délai de résolution (Δ Xj)
+
+#### Évaluation automatique par IA
+
+Le formulaire d'ajout de risque propose un bouton **✨ Évaluer avec l'IA** à côté du champ Description.
+
+**Fonctionnement :**
+1. Saisir la description du risque (ex : « Retard de livraison du serveur »)
+2. Cliquer sur **✨ Évaluer avec l'IA**
+3. L'IA (Claude Haiku) analyse le risque dans le contexte du projet et pré-remplit :
+   - **Probabilité** (Faible / Moyen / Élevé)
+   - **Impact** (Faible / Modéré / Sévère)
+   - **Catégorie** (Technique, Organisationnel, Externe…)
+   - **Stratégie** de traitement suggérée (Éviter / Réduire / Transférer / Accepter)
+4. Une **note explicative** en violet apparaît sous le champ
+5. Toutes les valeurs restent **modifiables** librement avant de valider
+
+> Cette fonctionnalité nécessite que la variable `ANTHROPIC_API_KEY` soit configurée côté serveur.
 
 #### Liaison avec une tâche WBS
 
@@ -532,6 +583,7 @@ Après `/start` ou `/menu`, un **clavier interactif** s'affiche avec des boutons
 | `/retard` | Projets ayant dépassé leur deadline avec nombre de jours de retard |
 | `/risques` | Risques de niveau Élevé ou Critique sur tous les projets |
 | `/projet <nom>` | Fiche rapide d'un projet : phase, deadline, nb tâches, activité 7 jours |
+| `/rapport <nom>` | **Rapport complet** d'un projet : avancement, livrables, risques en 1 message |
 | `/equipe` | Activité des deux membres de l'équipe aujourd'hui |
 
 #### Personnel (compte Telegram lié requis)
@@ -548,7 +600,53 @@ Après `/start` ou `/menu`, un **clavier interactif** s'affiche avec des boutons
 | `/modifier <id> <heures>` | Modifier la durée d'une entrée (ID obtenu via /aujourd'hui) |
 | `/supprimer <id>` | Supprimer une entrée de temps |
 
-### 12.3 Commande /alertes
+### 12.3 Commande /rapport
+
+La commande `/rapport <nom du projet>` génère en un seul message le résumé complet d'un projet. La correspondance sur le nom est approximative (pas besoin du nom exact).
+
+**Contenu du rapport :**
+- Phase ISO 21500 et deadline (avec jours restants ou retard)
+- Barre de progression + nombre de tâches terminées / total
+- Liste des tâches en retard (si applicable)
+- Livrables avec leur statut
+- Risques avec leur niveau (🔴/🟠/🟡/🟢)
+
+**Exemple :**
+```
+/rapport ATD-Finances
+```
+
+### 12.4 Briefing matinal automatique
+
+Chaque matin à **8h30** (UTC), le bot envoie automatiquement un briefing personnalisé à chaque membre configuré, **sans aucune action requise**.
+
+**Contenu du briefing :**
+- 🔴 Tâches en retard (avec nombre de jours)
+- 📌 Tâches à terminer aujourd'hui
+- ⏰ Tâches à rendre dans les 3 prochains jours
+- ⚠️ Risques critiques ou élevés ouverts
+
+**Exemple de briefing reçu :**
+```
+☀️ Bonjour Moctar — Lundi 26/06
+
+🔴 2 tâche(s) en retard
+  • Migration base de données (3j)
+  • Revue architecture (1j)
+
+📌 1 à finir aujourd'hui
+  • Livraison prototype v2
+
+⏰ 2 à rendre dans 3 jours
+  • Rapport mensuel — 2026-06-28
+  • Recette UAT — 2026-06-29
+
+/alertes pour le détail complet
+```
+
+> Pour déclencher le briefing manuellement (démo ou test) : `POST /api/briefing/send`
+
+### 12.6 Commande /alertes
 
 La commande `/alertes` retourne en un seul message la liste des tâches critiques :
 
@@ -568,7 +666,7 @@ Exemple de réponse :
   · Livraison prototype · 📅 2026-06-27
 ```
 
-### 12.4 Saisie en langage naturel
+### 12.7 Saisie en langage naturel
 
 Le bot comprend le langage naturel pour la saisie de temps. Exemples de messages reconnus :
 
@@ -580,7 +678,7 @@ j'ai travaillé 3h sur Projet Alpha hier
 
 Le bot identifie automatiquement le projet par correspondance approximative (même si le nom n'est pas parfaitement exact).
 
-### 12.5 Commande /log détaillée
+### 12.8 Commande /log détaillée
 
 ```
 /log 2h Projet Alpha - description de l'activité
@@ -672,6 +770,7 @@ Les variables suivantes doivent être configurées dans le service backend sur R
 | `TELEGRAM_USER_A` | Telegram User ID du membre A | `805113249` |
 | `TELEGRAM_USER_B` | Telegram User ID du membre B | `981509710` |
 | `ALLOWED_ORIGINS` | URL(s) du frontend autorisées | `https://challenge-aiatdodoo.vercel.app` |
+| `ANTHROPIC_API_KEY` | Clé API Anthropic (Claude) — active le Commandant IA et la suggestion risques | `sk-ant-...` |
 
 > ⚠️ **Sécurité :** Ces variables ne doivent jamais être partagées ni committées dans Git. Le fichier `.env` local est exclu du dépôt par le fichier `.gitignore`.
 
@@ -702,14 +801,24 @@ curl -X POST https://votre-service.onrender.com/webhook/telegram/setup
 
 Ce endpoint enregistre également toutes les commandes natives dans le menu Telegram (la liste apparaît quand l'utilisateur tape `/`).
 
-### 15.4 Obtenir le Telegram User ID
+### 15.4 Déclencher le briefing manuellement
+
+Pour tester le briefing matinal ou l'envoyer hors de l'heure automatique (8h30 UTC) :
+
+```bash
+curl -X POST https://votre-service.onrender.com/api/briefing/send
+```
+
+La réponse indique le nombre d'utilisateurs contactés : `{"sent": 2}`
+
+### 15.5 Obtenir le Telegram User ID
 
 Pour configurer `TELEGRAM_USER_A` et `TELEGRAM_USER_B`, chaque membre doit :
 1. Ouvrir Telegram et chercher **@userinfobot**
 2. Envoyer le message `/start`
 3. Le bot répond avec votre User ID numérique
 
-### 15.5 Créer ou révoquer un bot Telegram
+### 15.6 Créer ou révoquer un bot Telegram
 
 **Créer un bot :**
 1. Ouvrir Telegram et chercher **@BotFather**
@@ -723,7 +832,7 @@ Pour configurer `TELEGRAM_USER_A` et `TELEGRAM_USER_B`, chaque membre doit :
 3. Mettre à jour `TELEGRAM_BOT_TOKEN` dans Render
 4. Appeler `/webhook/telegram/setup` pour ré-enregistrer le webhook
 
-### 15.6 Conformité ISO 21500 — Référence des processus couverts
+### 15.7 Conformité ISO 21500 — Référence des processus couverts
 
 | Processus | § ISO 21500 | Couverture |
 |---|---|---|
@@ -743,4 +852,53 @@ Pour configurer `TELEGRAM_USER_A` et `TELEGRAM_USER_B`, chaque membre doit :
 
 ---
 
-*Document mis à jour le 25 juin 2026 — ATD Gestion de Projet v1.2*
+---
+
+## 16. Commandant — Assistant IA
+
+**Commandant** est un assistant conversationnel flottant intégré à l'application, accessible depuis n'importe quelle page via la bulle en bas à droite de l'écran (icône d'officier).
+
+### 16.1 Accéder au Commandant
+
+Cliquer sur la bulle flottante pour ouvrir le panneau de conversation. Le Commandant est disponible à tout moment, quelle que soit la page affichée.
+
+### 16.2 Ce que le Commandant peut faire
+
+Le Commandant combine deux modes de réponse :
+
+**Mode direct (handlers rapides, sans IA externe) :**
+
+| Demande | Exemple |
+|---|---|
+| Tâches en retard | « mes tâches en retard » |
+| Liste des projets | « quels sont mes projets » |
+| Heures saisies | « combien d'heures cette semaine » |
+| Avancement PDAAP | « avancement PDAAP » ou « statut Finances » |
+| Créer une tâche | « crée une tâche Revue dans Projet Alpha » |
+| Saisir du temps | « 3h sur Projet Alpha - réunion client » |
+
+**Mode IA (Claude Haiku) :**
+
+Pour toute question ne correspondant pas aux handlers ci-dessus, le Commandant interroge **Claude Haiku** avec le contexte de l'utilisateur (tâches ouvertes, retards) et génère une réponse en langage naturel. Exemples :
+
+- « Comment prioriser mes tâches cette semaine ? »
+- « Explique-moi la méthode de la valeur acquise »
+- « Quelles sont les bonnes pratiques pour un registre des risques ? »
+- « Rédige un ordre du jour de réunion de suivi »
+
+### 16.3 Contexte injecté automatiquement
+
+Le Commandant connaît automatiquement :
+- Le nom et le rôle de l'utilisateur connecté
+- Le nombre de tâches ouvertes et en retard
+- Le contexte ATD / transformation digitale du Togo
+
+Il n'a pas besoin qu'on lui rappelle qui vous êtes.
+
+### 16.4 Prérequis
+
+Le mode IA (Claude) nécessite que la variable `ANTHROPIC_API_KEY` soit configurée sur le serveur. Sans cette variable, seuls les handlers directs fonctionnent et le Commandant répond « Je n'ai pas compris » pour les questions hors périmètre.
+
+---
+
+*Document mis à jour le 26 juin 2026 — ATD Gestion de Projet v1.3*
