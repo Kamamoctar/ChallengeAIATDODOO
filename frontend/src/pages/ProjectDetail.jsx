@@ -54,6 +54,7 @@ export default function ProjectDetail() {
 
   const [tab, setTab] = useState('wbs')
   const [group, setGroup] = useState('execution')
+  const [showISODetail, setShowISODetail] = useState(false)
   const [showMoreActions, setShowMoreActions] = useState(false)
   const [showNewTask, setShowNewTask] = useState(false)
   const [showMilestone, setShowMilestone] = useState(false)
@@ -153,19 +154,19 @@ export default function ProjectDetail() {
 
   // ISO 21500 compliance score (11 criteria)
   const isoChecks = [
-    allTasks.some(t => /^\[CHARTER\]/i.test(t.name)),
-    allTasks.some(t => /^\[STAKEHOLDER\]/i.test(t.name)),
-    rootTasks.length > 0,
-    allTasks.some(t => /^\[RISK\]/i.test(t.name)),
-    allTasks.some(t => /^\[DELIVERABLE\]/i.test(t.name)),
-    allTasks.some(t => /^\[CHANGE\]/i.test(t.name)),
-    allTasks.some(t => /^\[LESSON\]/i.test(t.name)),
-    allTasks.some(t => /^\[COMMS\]/i.test(t.name)),
-    allTasks.some(t => /^\[PROCUREMENT\]/i.test(t.name)),
-    allTasks.some(t => /^\[RESOURCE\]/i.test(t.name)),
-    allTasks.some(t => /^\[QUALITY\]/i.test(t.name)),
+    { label: 'Charte projet',       ok: allTasks.some(t => /^\[CHARTER\]/i.test(t.name)),     tab: 'charter' },
+    { label: 'Parties prenantes',   ok: allTasks.some(t => /^\[STAKEHOLDER\]/i.test(t.name)), tab: 'stakeholders' },
+    { label: 'WBS / tâches',        ok: rootTasks.length > 0,                                  tab: 'wbs' },
+    { label: 'Registre des risques',ok: allTasks.some(t => /^\[RISK\]/i.test(t.name)),         tab: 'risks' },
+    { label: 'Livrables',           ok: allTasks.some(t => /^\[DELIVERABLE\]/i.test(t.name)),  tab: 'deliverables' },
+    { label: 'Gestion des changem.',ok: allTasks.some(t => /^\[CHANGE\]/i.test(t.name)),       tab: 'changes' },
+    { label: 'Leçons apprises',     ok: allTasks.some(t => /^\[LESSON\]/i.test(t.name)),       tab: 'lessons' },
+    { label: 'Plan de comm.',       ok: allTasks.some(t => /^\[COMMS\]/i.test(t.name)),        tab: 'comms' },
+    { label: 'Approvisionnements',  ok: allTasks.some(t => /^\[PROCUREMENT\]/i.test(t.name)),  tab: 'procurement' },
+    { label: 'Ressources',          ok: allTasks.some(t => /^\[RESOURCE\]/i.test(t.name)),     tab: 'resources' },
+    { label: 'Qualité',             ok: allTasks.some(t => /^\[QUALITY\]/i.test(t.name)),      tab: 'quality' },
   ]
-  const isoScore = isoChecks.filter(Boolean).length
+  const isoScore = isoChecks.filter(c => c.ok).length
   const isoScorePct = Math.round((isoScore / isoChecks.length) * 100)
 
   if (loadingProject) return <div className="loading" style={{ padding: '2rem' }}>Chargement…</div>
@@ -199,11 +200,13 @@ export default function ProjectDetail() {
                 {overdueTasks} en retard
               </span>
             )}
-            <span style={{ fontSize: '.65rem', borderRadius: 4, padding: '1px 5px', fontWeight: 700,
+            <button onClick={() => setShowISODetail(v => !v)} style={{
+              fontSize: '.65rem', borderRadius: 4, padding: '1px 6px', fontWeight: 700, cursor: 'pointer',
+              border: 'none',
               background: isoScorePct >= 80 ? '#e6f7f6' : isoScorePct >= 50 ? 'var(--warning-light)' : 'var(--danger-light)',
               color: isoScorePct >= 80 ? 'var(--success)' : isoScorePct >= 50 ? '#b45309' : 'var(--danger)' }}>
-              ISO {isoScorePct}%
-            </span>
+              ISO {isoScore}/{isoChecks.length} {showISODetail ? '▲' : '▼'}
+            </button>
           </div>
         </div>
       </header>
@@ -212,6 +215,26 @@ export default function ProjectDetail() {
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '.75rem 1rem' }}>
         <ISOPhase projectId={projectId} description={project?.description} allTasks={allTasks} />
       </div>
+
+      {/* ── ISO COMPLÉTUDE (panneau déroulant) ── */}
+      {showISODetail && (
+        <div style={{ background: '#fffbeb', borderBottom: '1px solid #fed7aa', padding: '.65rem 1rem' }}>
+          <div style={{ fontSize: '.72rem', fontWeight: 700, color: '#92400e', marginBottom: '.4rem' }}>
+            Complétude ISO 21500 — {isoScore}/{isoChecks.length} critères remplis
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '.25rem' }}>
+            {isoChecks.map(c => (
+              <button key={c.tab} onClick={() => { setShowISODetail(false); setGroup(groupOfTab(c.tab)); setTab(c.tab) }}
+                style={{ display: 'flex', alignItems: 'center', gap: '.35rem', background: 'none', border: 'none',
+                  cursor: 'pointer', fontSize: '.72rem', color: c.ok ? '#16a34a' : '#b45309',
+                  padding: '2px 0', textAlign: 'left' }}>
+                <span style={{ fontSize: '.8rem' }}>{c.ok ? '✅' : '⬜'}</span>
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── QUICK ACTIONS (allégées) ────────────── */}
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)',
@@ -399,7 +422,7 @@ export default function ProjectDetail() {
           <>
             <div className="section-title">Registre des Risques & Problèmes</div>
             <div className="card">
-              <RiskRegister projectId={projectId} defaultOwner={active.name} />
+              <RiskRegister projectId={projectId} defaultOwner={active.name} projectName={project?.name || ''} />
             </div>
           </>
         )}

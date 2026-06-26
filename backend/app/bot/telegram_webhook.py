@@ -35,6 +35,9 @@ MENU_KEYBOARD = [
         {"text": "🗂 Portefeuille", "callback_data": "/portefeuille"},
     ],
     [
+        {"text": "📊 Rapport",      "callback_data": "/rapport"},
+    ],
+    [
         {"text": "❓ Aide",         "callback_data": "/aide"},
     ],
 ]
@@ -57,6 +60,7 @@ BOT_COMMANDS = [
     {"command": "modifier",    "description": "Modifier une entrée (ex: /modifier 123 2.5)"},
     {"command": "supprimer",   "description": "Supprimer une entrée (ex: /supprimer 123)"},
     {"command": "alertes",     "description": "Mes tâches urgentes et en retard 🔔"},
+    {"command": "rapport",     "description": "Rapport d'un projet (ex: /rapport Alpha) 📊"},
     {"command": "aide",        "description": "Aide et liste des commandes ❓"},
 ]
 
@@ -190,6 +194,11 @@ async def _dispatch(bot_token: str, chat_id: int, tg_uid: int, text: str):
     # ── Commandes sans auth ───────────────────────────────────────────
     if text.startswith("/projets"):
         await reply(await commands.cmd_projets())
+        return
+
+    if text.lower().startswith("/rapport"):
+        query = text[8:].strip()
+        await reply(await commands.cmd_rapport(query))
         return
 
     if text.startswith("/portefeuille"):

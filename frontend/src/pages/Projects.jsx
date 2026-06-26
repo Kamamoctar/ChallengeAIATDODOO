@@ -96,20 +96,41 @@ export default function Projects() {
 
   const projectOptions = projects.map(p => ({ value: p.id, label: p.name }))
 
+  // Score de santé : 🟢 / 🟡 / 🔴 / ⚪ calculé depuis deadline + phase
+  function projectHealth(p) {
+    const phId = parsePhase(p.description)
+    if (phId === 'Closing') return null
+    if (!p.date) return { color: '#94a3b8', label: 'Pas de deadline', dot: '#94a3b8' }
+    const daysLeft = Math.round((new Date(p.date) - new Date()) / 86_400_000)
+    if (daysLeft < 0)  return { color: '#ef4444', label: `En retard de ${-daysLeft}j`, dot: '#ef4444' }
+    if (daysLeft <= 7) return { color: '#f59e0b', label: `Échéance dans ${daysLeft}j`, dot: '#f59e0b' }
+    return { color: '#22c55e', label: `En bonne voie (${daysLeft}j)`, dot: '#22c55e' }
+  }
+
   // Rendu d'une carte projet (réutilisé dans chaque groupe société)
   const renderProject = (p) => {
     const overdue = p.date && isPast(parseISO(p.date))
     const phaseId = parsePhase(p.description)
     const phase = ISO_PHASES.find(ph => ph.id === phaseId)
     const isClosed = phaseId === 'Closing'
+    const health = projectHealth(p)
     return (
       <Link key={p.id} to={`/projects/${p.id}`} style={{ textDecoration: 'none' }}>
         <div className="card" style={{ marginBottom: '.6rem', cursor: 'pointer',
           borderLeft: overdue ? '3px solid var(--danger)' : isClosed ? '3px solid #8b5cf6' : '3px solid transparent' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ fontWeight: 700, fontSize: '.95rem', color: 'var(--text)', flex: 1, marginRight: '.5rem',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {p.name}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', flex: 1, minWidth: 0, marginRight: '.5rem' }}>
+              {health && (
+                <span title={health.label} style={{
+                  display: 'inline-block', width: 9, height: 9, borderRadius: '50%',
+                  background: health.dot, flexShrink: 0,
+                  boxShadow: `0 0 4px ${health.dot}88`
+                }} />
+              )}
+              <span style={{ fontWeight: 700, fontSize: '.95rem', color: 'var(--text)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {p.name}
+              </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '.2rem', flexShrink: 0 }}>
               {p.date && (
@@ -133,8 +154,10 @@ export default function Projects() {
                 <User size={12} style={{ verticalAlign: '-2px', flexShrink: 0 }} /> {Array.isArray(p.user_id) ? p.user_id[1] : p.user_id}
               </span>
             )}
-            {overdue && (
-              <span className="badge badge-danger" style={{ fontSize: '.63rem' }}>En retard</span>
+            {health && (
+              <span style={{ fontSize: '.63rem', color: health.color, marginLeft: 'auto' }}>
+                {health.label}
+              </span>
             )}
           </div>
         </div>

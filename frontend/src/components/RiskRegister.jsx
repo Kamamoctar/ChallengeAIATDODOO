@@ -209,12 +209,14 @@ function emptyForm(owner) {
 
 const RISK_ISO_RE = /^\[(RISK|RISQUE|ISSUE|PROBLEME|CHARTER|STAKEHOLDER|CHANGE|DELIVERABLE|LESSON|COMMS|PROCUREMENT|RESOURCE|QUALITY|MILESTONE)\]/i
 
-export default function RiskRegister({ projectId, defaultOwner = '' }) {
+export default function RiskRegister({ projectId, defaultOwner = '', projectName = '' }) {
   const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editTask, setEditTask] = useState(null)
   const [form, setForm] = useState(() => emptyForm(defaultOwner))
   const [showSuggest, setShowSuggest] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiNote, setAiNote] = useState('')
 
   const { data: allTasks = [] } = useQuery({
     queryKey: ['risks', projectId],
@@ -262,6 +264,30 @@ export default function RiskRegister({ projectId, defaultOwner = '' }) {
       owner: meta.owner || '', status: meta.status || 'Ouvert',
       deliverable_id: meta.deliverable_id || '', tache_concernee: meta.tache_concernee || '' })
     setShowForm(true)
+  }
+
+  async function analyzeWithAI() {
+    if (!form.name.trim()) return toast.error('Saisissez d\'abord la description du risque')
+    setAiLoading(true)
+    setAiNote('')
+    try {
+      const res = await api.suggestRisk(form.name, projectName)
+      if (res.error) return toast.error(res.error)
+      const MAP = { L: 'L', M: 'M', H: 'H', Faible: 'L', Moyen: 'M', Élevé: 'H', Modéré: 'M', Sévère: 'H' }
+      setForm(p => ({
+        ...p,
+        prob:     MAP[res.prob]     || p.prob,
+        impact:   MAP[res.impact]   || p.impact,
+        category: res.category      || p.category,
+        treatment: res.strategie ? `${res.strategie} — ${p.treatment || ''}`.replace(/ — $/, '') : p.treatment,
+      }))
+      if (res.note) setAiNote(res.note)
+      toast.success('IA : évaluation appliquée')
+    } catch (e) {
+      toast.error('Erreur IA : ' + e.message)
+    } finally {
+      setAiLoading(false)
+    }
   }
 
   function handleSubmit() {
@@ -399,9 +425,24 @@ export default function RiskRegister({ projectId, defaultOwner = '' }) {
             </div>
           </div>
           <div className="form-group" style={{ margin: '.6rem 0 0' }}>
-            <label>Description *</label>
-            <input type="text" value={form.name} onChange={e => f('name', e.target.value)}
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Description *</span>
+              <button type="button" onClick={analyzeWithAI} disabled={aiLoading}
+                style={{ fontSize: '.72rem', padding: '2px 8px', borderRadius: 5, border: '1.5px solid #8b5cf6',
+                  background: aiLoading ? '#f5f3ff' : '#fff', color: '#7c3aed', cursor: aiLoading ? 'wait' : 'pointer',
+                  fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Sparkles size={11} style={{ flexShrink: 0 }} />
+                {aiLoading ? 'Analyse…' : '✨ Évaluer avec l\'IA'}
+              </button>
+            </label>
+            <input type="text" value={form.name} onChange={e => { f('name', e.target.value); setAiNote('') }}
               placeholder="Décrivez le risque ou problème…" />
+            {aiNote && (
+              <div style={{ marginTop: '.35rem', padding: '.4rem .6rem', background: '#f5f3ff',
+                border: '1px solid #ddd6fe', borderRadius: 6, fontSize: '.75rem', color: '#6d28d9', lineHeight: 1.4 }}>
+                💡 {aiNote}
+              </div>
+            )}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '.6rem' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>

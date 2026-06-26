@@ -585,6 +585,78 @@ async def handle_log(text: str, employee_id: int) -> str:
         confirm += f"\n\n<i>Projet trouvé par approximation — confiance {parsed.confidence:.0%}</i>"
     return confirm
 
+# ─── /briefing (envoi automatique 8h30) ─────────────────────────────────────
+
+async def cmd_briefing(employee_id: int, res_user_id: int) -> str:
+    today     = date.today().isoformat()
+    in_3d     = (date.today() + timedelta(days=3)).isoformat()
+    name      = settings.employee_name(employee_id).split()[0]
+    day_fr    = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'][date.today().weekday()]
+    date_fmt  = date.today().strftime('%d/%m')
+
+    tasks = await gateway.search_read(
+        "project.task",
+        domain=[["user_ids", "in", [res_user_id]],
+                ["stage_id.fold", "=", False],
+                ["date_deadline", "!=", False]],
+        fields=["name", "date_deadline", "project_id"],
+        limit=80, order="date_deadline asc",
+    )
+    overdue   = [t for t in tasks if t["date_deadline"] < today]
+    due_today = [t for t in tasks if t["date_deadline"] == today]
+    soon      = [t for t in tasks if today < t["date_deadline"] <= in_3d]
+
+    risk_tasks = await gateway.search_read(
+        "project.task",
+        domain=[["name", "ilike", "[RISK]"], ["active", "=", True]],
+        fields=["name", "description"], limit=100,
+    )
+    high_risks = []
+    for r in risk_tasks:
+        meta = _parse_meta(r["description"])
+        if meta.get("status") in ("Clos",):
+            continue
+        lvl = _risk_level(meta)
+        if lvl in ("Critique", "Élevé"):
+            high_risks.append((_risk_emoji(lvl), r["name"].replace("[RISK]", "").strip(), lvl))
+
+    lines = [f"☀️ <b>Bonjour {name} — {day_fr} {date_fmt}</b>\n"]
+
+    if overdue:
+        lines.append(f"🔴 <b>{len(overdue)} tâche(s) en retard</b>")
+        for t in overdue[:4]:
+            d = (date.today() - date.fromisoformat(t["date_deadline"])).days
+            lines.append(f"  • {t['name']} ({d}j)")
+        if len(overdue) > 4:
+            lines.append(f"  … +{len(overdue) - 4} autre(s)")
+        lines.append("")
+
+    if due_today:
+        lines.append(f"📌 <b>{len(due_today)} à finir aujourd'hui</b>")
+        for t in due_today[:3]:
+            lines.append(f"  • {t['name']}")
+        lines.append("")
+
+    if soon:
+        lines.append(f"⏰ <b>{len(soon)} à rendre dans 3 jours</b>")
+        for t in soon[:3]:
+            lines.append(f"  • {t['name']} — {t['date_deadline']}")
+        lines.append("")
+
+    if high_risks:
+        lines.append(f"⚠️ <b>{len(high_risks)} risque(s) critique(s)/élevé(s)</b>")
+        for emoji, rname, _ in high_risks[:3]:
+            lines.append(f"  {emoji} {rname}")
+        lines.append("")
+
+    if not overdue and not due_today and not soon and not high_risks:
+        lines.append("✅ Rien d'urgent aujourd'hui. Bonne journée productive !")
+    else:
+        lines.append("/alertes pour le détail complet")
+
+    return "\n".join(lines)
+
+
 # ─── /alertes ────────────────────────────────────────────────────────────────
 
 async def cmd_alertes(employee_id: int, res_user_id: int) -> str:
@@ -630,4 +702,92 @@ async def cmd_alertes(employee_id: int, res_user_id: int) -> str:
     if not overdue and not urgent:
         lines.append("✅ Aucune tâche urgente ou en retard dans les 3 prochains jours !")
 
+    return "\n".join(lines)
+
+
+# ─── /rapport <projet> ────────────────────────────────────────────────────────
+
+async def cmd_rapport(project_query: str) -> str:
+    if not project_query.strip():
+        return "Usage : /rapport &lt;nom du projet&gt;\nEx: /rapport ATD-Finances"
+
+    projects = await gateway.search_read(
+        "project.project",
+        domain=[["active", "=", True]],
+        fields=["id", "name", "date", "description"],
+        limit=300,
+    )
+    if not projects:
+        return "Aucun projet trouvé."
+
+    import difflib
+    names = [p["name"] for p in projects]
+    low = project_query.lower()
+    close = difflib.get_close_matches(project_query, names, n=1, cutoff=0.3)
+    found = next((p for p in projects if p["name"] == close[0]), None) if close else None
+    if not found:
+        found = next((p for p in projects if low in p["name"].lower()), None)
+    if not found:
+        return (f"Projet « {project_query} » introuvable.\n"
+                f"Utilisez /projets pour voir la liste complète.")
+
+    tasks = await gateway.search_read(
+        "project.task",
+        domain=[["project_id", "=", found["id"]], ["active", "=", True]],
+        fields=["name", "date_deadline", "stage_id", "description"],
+        limit=300,
+    )
+
+    today = date.today().isoformat()
+    phase = _parse_phase(found.get("description", ""))
+    deadline = found.get("date") or "non définie"
+    days_left = ""
+    if found.get("date"):
+        delta = (date.fromisoformat(found["date"]) - date.today()).days
+        if delta < 0:
+            days_left = f" 🔴 {-delta}j de retard"
+        elif delta == 0:
+            days_left = " ⚠️ aujourd'hui"
+        else:
+            days_left = f" · {delta}j restants"
+
+    ISO_RE = re.compile(r'^\[', re.I)
+    wbs = [t for t in tasks if not ISO_RE.match(t["name"])]
+    done = [t for t in wbs if t.get("stage_id") and
+            re.search(r'done|terminé|fini|validé|clôt', t["stage_id"][1] or "", re.I)]
+    overdue_wbs = [t for t in wbs if t.get("date_deadline") and t["date_deadline"] < today]
+    risks        = [t for t in tasks if re.match(r'^\[RISK\]', t["name"], re.I)]
+    deliverables = [t for t in tasks if re.match(r'^\[DELIVERABLE\]', t["name"], re.I)]
+    open_crit    = [r for r in risks if _risk_level(_parse_meta(r["description"])) in ("Critique", "Élevé")]
+
+    pct = round(len(done) / len(wbs) * 100) if wbs else 0
+    bar = _bar(pct, 100, 12)
+
+    lines = [
+        f"📊 <b>{found['name']}</b>",
+        f"{phase} · 📅 {deadline}{days_left}",
+        "",
+        f"<b>Avancement</b>",
+        f"{bar} {pct}%  ({len(done)}/{len(wbs)} tâches)",
+    ]
+    if overdue_wbs:
+        lines.append(f"🔴 {len(overdue_wbs)} tâche(s) en retard")
+
+    if deliverables:
+        lines.append(f"\n<b>Livrables ({len(deliverables)})</b>")
+        for d in deliverables[:5]:
+            name_d = d["name"].replace("[DELIVERABLE]", "").strip()
+            statut = _parse_meta(d["description"]).get("statut", "—")
+            lines.append(f"  • {name_d} — {statut}")
+
+    if risks:
+        lines.append(f"\n<b>Risques ({len(risks)})</b>")
+        if open_crit:
+            lines.append(f"  ⚠️ {len(open_crit)} critique(s)/élevé(s) non clos")
+        for r in risks[:4]:
+            rn = r["name"].replace("[RISK]", "").strip()
+            lvl = _risk_level(_parse_meta(r["description"]))
+            lines.append(f"  {_risk_emoji(lvl)} {rn}")
+
+    lines.append("\n— Rapport ATD Bot 🤖")
     return "\n".join(lines)

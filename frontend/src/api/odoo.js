@@ -59,4 +59,8 @@ export const api = {
   createTimesheet: (data) => request('POST', '/api/timesheets', data),
   updateTimesheet: (id, data) => request('PUT', `/api/timesheets/${id}`, data),
   deleteTimesheet: (id) => request('DELETE', `/api/timesheets/${id}`),
+
+  // Risks — IA suggestion
+  suggestRisk: (riskName, projectName = '') =>
+    request('POST', '/api/risks/suggest', { risk_name: riskName, project_name: projectName }),
 }

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     employee_b_user_id: int = 0
 
     telegram_bot_token: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
     telegram_user_a: int = 0
     telegram_user_b: int = 0
 

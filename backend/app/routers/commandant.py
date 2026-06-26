@@ -1,8 +1,7 @@
 """Commandant — assistant conversationnel de l'app.
 
-Sans IA externe : il reconnaît des intentions par mots-clés et s'appuie sur
-l'analyseur de langage existant (nlp_parser) + les données Odoo. Il répond
-(pilotage) et agit (saisie de temps, création de tâche).
+Les intentions connues sont gérées par des handlers rapides (sans IA).
+Tout le reste est délégué à Claude Haiku pour une réponse naturelle.
 """
 
 import re
@@ -14,6 +13,7 @@ from pydantic import BaseModel
 from app import gateway
 from app.bot import nlp_parser
 from app.routers.pdaap import parse_meta, PDAAP_PROJECT
+from app.config import settings
 
 router = APIRouter(prefix="/api/commandant", tags=["commandant"])
 DONE_RE = re.compile(r"termin|clôt|clot|done|fait|validé|ferm", re.I)
@@ -118,7 +118,44 @@ async def commandant(body: Msg):
             "project_id": pid, "date": parsed.entry_date, "unit_amount": parsed.hours})
         return {"reply": f"**{parsed.hours}h** enregistrées sur « {parsed.project_name} » le {parsed.entry_date}."}
 
-    return {"reply": "Je n'ai pas compris. Tapez **aide** pour voir mes commandes."}
+    return await _claude_reply(body.message, body)
+
+
+async def _claude_reply(message: str, body: Msg) -> dict:
+    if not settings.anthropic_api_key:
+        return {"reply": "Je n'ai pas compris. Tapez **aide** pour voir mes commandes."}
+
+    from anthropic import AsyncAnthropic
+    client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+    ctx = [f"Utilisateur : {body.employee_name or 'Chef de projet'} — ATD (Agence des Transformations Digitales du Togo)"]
+
+    if body.user_id:
+        today = date.today().isoformat()
+        tasks = await gateway.search_read(
+            "project.task",
+            domain=[["user_ids", "in", [body.user_id]], ["stage_id.fold", "=", False]],
+            fields=["name", "date_deadline", "project_id"], limit=20, order="date_deadline asc",
+        )
+        overdue = [t for t in tasks if t.get("date_deadline") and t["date_deadline"] < today]
+        ctx.append(f"Tâches ouvertes : {len(tasks)} dont {len(overdue)} en retard")
+        if overdue[:3]:
+            ctx.append("En retard : " + " | ".join(t["name"] for t in overdue[:3]))
+
+    system = (
+        "Tu es Commandant, l'assistant IA de gestion de projet de l'ATD. "
+        "Tu es intégré dans une app de pilotage de projets ISO 21500 pour la transformation digitale du Togo. "
+        "Réponds en français, de manière concise et professionnelle. "
+        "Utilise **texte** pour mettre en gras. Pas de HTML. Contexte: " + " | ".join(ctx)
+    )
+
+    resp = await client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=400,
+        system=system,
+        messages=[{"role": "user", "content": message}],
+    )
+    return {"reply": resp.content[0].text.strip()}
 
 
 async def _pdaap_reply(t):
