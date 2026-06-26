@@ -15,6 +15,12 @@ export const api = {
   // Health
   getHealth: () => request('GET', '/api/health'),
 
+  // PDAAP
+  getPdaap: () => request('GET', '/api/pdaap'),
+
+  // Commandant (chatbot)
+  commandant: (body) => request('POST', '/api/commandant', body),
+
   // Employees
   getEmployees: () => request('GET', '/api/employees'),
 

@@ -2,16 +2,18 @@ import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Home, Target, CalendarDays, ClipboardList, Folder, Calendar, Search, Plus, Wifi, RefreshCw, Trash2 } from 'lucide-react'
+import { Home, Target, CalendarDays, ClipboardList, Folder, Calendar, Search, Plus, Wifi, RefreshCw, Trash2, Landmark } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import QuickEntry from './pages/QuickEntry'
 import History from './pages/History'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
 import Focus from './pages/Focus'
+import PDAAP from './pages/PDAAP'
 import Week from './pages/Week'
 import Kanban from './pages/Kanban'
 import FloatingTimer from './components/FloatingTimer'
+import Commandant from './components/Commandant'
 import OverdueReminder from './components/OverdueReminder'
 import SearchModal from './components/SearchModal'
 import ThemeSwitch from './components/ThemeSwitch'
@@ -21,6 +23,7 @@ import { queueGet, queueRemove, queueClear } from './utils/offlineQueue'
 
 const NAV = [
   { to: '/',         icon: Home,         label: "Aujourd'hui", end: true },
+  { to: '/pdaap',    icon: Landmark,     label: 'PDAAP' },
   { to: '/focus',    icon: Target,       label: 'Focus' },
   { to: '/week',     icon: CalendarDays, label: 'Semaine' },
   { to: '/kanban',   icon: ClipboardList, label: 'Kanban' },
@@ -187,12 +190,14 @@ export default function App() {
           <Route path="/history" element={<History />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
+          <Route path="/pdaap" element={<PDAAP />} />
           <Route path="/focus" element={<Focus />} />
           <Route path="/week" element={<Week />} />
           <Route path="/kanban" element={<Kanban />} />
         </Routes>
 
         <FloatingTimer />
+        <Commandant />
       </div>
 
       {/* ── BOTTOM NAV (mobile only) ─────────────────── */}
